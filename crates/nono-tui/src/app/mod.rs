@@ -1,0 +1,239 @@
+mod focus;
+mod layout;
+mod mode;
+mod pos;
+mod selection;
+mod state;
+
+pub use focus::*;
+pub use mode::*;
+pub use pos::*;
+pub use selection::*;
+pub use state::*;
+
+use crossterm::{
+    event::{self as t_event, EnableMouseCapture},
+    execute,
+    terminal::EnterAlternateScreen,
+};
+use nono::{Error, Puzzle, Result, Rules, Solver};
+use ratatui::{
+    DefaultTerminal, Frame,
+    layout::{Direction, Margin, Rect},
+    style::{Color, Style},
+    widgets::{FrameExt, Scrollbar, ScrollbarOrientation, ScrollbarState},
+};
+use std::time::Duration;
+
+use crate::{
+    ActionEngine, ActionInput, ActionOutcome, ActionResult, AppEvent, AppState, ComputeLayout,
+    Config, EventEngine, FooterWidget, HandleAction, PuzzleStyle, PuzzleWidget, RulesWidget,
+};
+
+const POLL_DURATION: Duration = Duration::from_millis(30);
+const TICK_DURATION: Duration = Duration::from_millis(200);
+
+#[derive(Debug)]
+pub struct App {
+    // State
+    pub state: AppState,
+    pub solver: Solver,
+
+    // Input
+    pub events: EventEngine,
+    pub actions: ActionEngine,
+
+    // Widgets
+    puzzle_widget: PuzzleWidget,
+    rules_left: RulesWidget,
+    rules_top: RulesWidget,
+    footer: FooterWidget,
+
+    // Layouts
+    footer_area: Rect,
+}
+
+impl App {
+    pub fn new(puzzle: Puzzle, rules: Rules, style: PuzzleStyle, config: Config) -> Self {
+        let rules_left = RulesWidget::new(rules.rows.clone(), Direction::Vertical);
+        let rules_top = RulesWidget::new(rules.cols.clone(), Direction::Horizontal);
+
+        let state = AppState::new(puzzle, rules, style, config.settings);
+        let events = EventEngine::new(config.actions.clone(), TICK_DURATION);
+
+        Self {
+            state,
+            events,
+            actions: ActionEngine::default(),
+
+            solver: Solver::default(),
+            puzzle_widget: PuzzleWidget,
+            rules_left,
+            rules_top,
+            footer: FooterWidget,
+
+            footer_area: Rect::default(),
+        }
+    }
+
+    pub fn run(&mut self, term: &mut DefaultTerminal) -> Result<()> {
+        self.init()?;
+
+        loop {
+            // Render
+            term.draw(|frame| {
+                self.compute_layout(frame.area());
+                self.render(frame)
+            })?;
+
+            // Poll for events
+            if t_event::poll(POLL_DURATION)? {
+                // Read the terminal event
+                let event = t_event::read()?;
+                let app_event = AppEvent::new(event);
+
+                // See whether the application handles it and whether it needs action
+                if let Some(input) = self.events.push(app_event.clone()) {
+                    let status = self.handle_with_engine(input)?;
+
+                    if matches!(status, ActionOutcome::Exit) {
+                        break;
+                    }
+                }
+            }
+
+            if let Some(input) = self.events.tick() {
+                let status = self.handle_with_engine(input)?;
+                if matches!(status, ActionOutcome::Exit) {
+                    break;
+                }
+            }
+        }
+
+        self.exit()
+    }
+
+    fn handle_with_engine(&mut self, input: ActionInput) -> ActionResult {
+        // Handle the event with the focused widget
+        let outcome = match self.state.focus {
+            Focus::Puzzle => {
+                self.actions
+                    .handle_action_with(&self.puzzle_widget, input.clone(), &mut self.state)
+            }
+            Focus::RulesLeft => {
+                self.actions
+                    .handle_action_with(&self.rules_left, input.clone(), &mut self.state)
+            }
+            Focus::RulesTop => {
+                self.actions
+                    .handle_action_with(&self.rules_top, input.clone(), &mut self.state)
+            }
+            Focus::Footer => {
+                self.actions
+                    .handle_action_with(&self.footer, input.clone(), &mut self.state)
+            }
+        }?;
+
+        // If a focus change is requested,
+        if matches!(
+            outcome,
+            ActionOutcome::RequestFocus | ActionOutcome::LoseFocus
+        ) {
+            self.state.switch_focus(input);
+        }
+
+        Ok(outcome)
+    }
+
+    fn init(&self) -> Result<()> {
+        execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture).map_err(Error::IO)
+    }
+
+    fn exit(&self) -> Result<()> {
+        execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture).map_err(Error::IO)
+    }
+
+    fn render(&mut self, frame: &mut Frame) {
+        frame.render_stateful_widget_ref(
+            &self.puzzle_widget,
+            self.state.puzzle.viewport,
+            &mut self.state,
+        );
+        frame.render_stateful_widget_ref(
+            &self.rules_left,
+            self.state.rules_left.area,
+            &mut self.state,
+        );
+        frame.render_stateful_widget_ref(
+            &self.rules_top,
+            self.state.rules_top.area,
+            &mut self.state,
+        );
+        frame.render_stateful_widget_ref(&self.footer, self.footer_area, &mut self.state);
+
+        // self.draw_puzzle_scrollbars(frame, self.state.viewport);
+    }
+
+    fn draw_puzzle_scrollbars(&mut self, frame: &mut Frame, area: Rect) {
+        // Common properties for both scrollbars
+        let style = Style::default().fg(Color::Gray);
+        let visible = self.state.puzzle.visible_cells();
+
+        // Display scrollbar to scroll through puzzle rows
+        let rows = self.state.puzzle.puzzle.rows() as usize;
+        let visible_rows = visible.height as usize;
+        let row = self.state.puzzle.scroll.row as usize;
+
+        if rows > visible_rows {
+            let scroll_rows_bar = Scrollbar::new(ScrollbarOrientation::VerticalLeft)
+                .begin_symbol(Some("↑"))
+                .end_symbol(Some("↓"))
+                .thumb_symbol("#")
+                .style(style);
+
+            let mut scroll_rows_state = ScrollbarState::new(rows - visible_rows)
+                .viewport_content_length(visible_rows)
+                .position(row);
+
+            frame.render_stateful_widget(
+                scroll_rows_bar,
+                area.inner(Margin::new(0, 1)),
+                &mut scroll_rows_state,
+            );
+        }
+
+        // Display scrollbar to scroll through puzzle columns
+        let cols = self.state.puzzle.puzzle.cols() as usize;
+        let visible_cols = visible.width as usize;
+        let col = self.state.puzzle.scroll.col as usize;
+
+        if cols > visible_cols {
+            let scroll_cols_bar = Scrollbar::new(ScrollbarOrientation::HorizontalTop)
+                .begin_symbol(Some("←"))
+                .end_symbol(Some("→"))
+                .thumb_symbol("#")
+                .style(style);
+
+            let mut scroll_cols_state = ScrollbarState::new(cols - visible_cols)
+                .viewport_content_length(visible_cols)
+                .position(col);
+
+            frame.render_stateful_widget(
+                scroll_cols_bar,
+                area.inner(Margin::new(1, 0)),
+                &mut scroll_cols_state,
+            );
+        }
+    }
+
+    pub fn actions(&self) -> &ActionEngine {
+        &self.actions
+    }
+}
+
+impl HandleAction for &mut App {
+    fn handle_action(&self, _input: ActionInput, _: &mut AppState) -> Result<ActionOutcome> {
+        Ok(ActionOutcome::Consumed)
+    }
+}
+
