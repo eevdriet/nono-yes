@@ -1,0 +1,6 @@
+[package]
+name = "nono-io"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
