@@ -26,8 +26,8 @@ use ratatui::{
 use std::time::Duration;
 
 use crate::{
-    ActionEngine, ActionInput, ActionOutcome, ActionResult, AppEvent, AppState, ComputeLayout,
-    Config, EventEngine, FooterWidget, HandleAction, PuzzleStyle, PuzzleWidget, RulesWidget,
+    ActionEngine, ActionInput, ActionOutcome, ActionResult, AppEvent, ComputeLayout, Config,
+    EventEngine, FooterWidget, HandleAction, PuzzleStyle, PuzzleWidget, RulesWidget,
 };
 
 const POLL_DURATION: Duration = Duration::from_millis(30);
@@ -236,4 +236,3 @@ impl HandleAction for &mut App {
         Ok(ActionOutcome::Consumed)
     }
 }
-

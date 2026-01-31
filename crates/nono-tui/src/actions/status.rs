@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::history::UndoAction;
+use crate::UndoAction;
 
 #[derive(Debug)]
 pub enum ActionOutcome {
