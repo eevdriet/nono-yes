@@ -82,6 +82,7 @@ impl HandleAction for &PuzzleWidget {
         // Bounds
         let max_row = puzzle.rows() - 1;
         let max_col = puzzle.cols() - 1;
+        let vp = &state.puzzle.viewport;
 
         // Positions
         let pos: Position = app_to_puzzle(state.puzzle.cursor);
@@ -189,8 +190,8 @@ impl HandleAction for &PuzzleWidget {
                 };
 
                 let end = AppPosition::new(mouse.column, mouse.row);
-                if state.puzzle.viewport.contains(end) {
-                    state.puzzle.screen_to_puzzle(end).unwrap_or(pos)
+                if vp.area.contains(end) {
+                    state.puzzle.screen_to_puzzle(vp.area, end).unwrap_or(pos)
                 } else {
                     return Ok((ActionOutcome::Ignored, MotionRange::Empty));
                 }
@@ -210,9 +211,9 @@ impl HandleAction for &PuzzleWidget {
     fn handle_command(&self, input: ActionInput, state: &mut AppState) -> ActionResult {
         let action = input.action;
 
-        let visible = state.puzzle.visible_cells();
-        let _y_scroll_max = state.puzzle.puzzle.rows() - visible.height;
-        let _y_half = visible.height / 2;
+        let vp = &state.puzzle.viewport;
+        let _y_scroll_max = state.puzzle.puzzle.rows() - vp.area.height;
+        let _y_half = vp.area.height / 2;
 
         if matches!(action, Action::SwitchFill)
             && let Event::Key(key) = *input.event

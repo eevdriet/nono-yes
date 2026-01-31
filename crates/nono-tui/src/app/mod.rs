@@ -1,11 +1,13 @@
 mod focus;
 mod layout;
+mod load;
 mod mode;
 mod pos;
 mod selection;
 mod state;
 
 pub use focus::*;
+pub use load::*;
 pub use mode::*;
 pub use pos::*;
 pub use selection::*;
@@ -19,15 +21,16 @@ use crossterm::{
 use nono::{Error, Puzzle, Result, Rules, Solver};
 use ratatui::{
     DefaultTerminal, Frame,
-    layout::{Direction, Margin, Rect},
+    layout::{Margin, Rect},
     style::{Color, Style},
     widgets::{FrameExt, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use std::time::Duration;
 
 use crate::{
-    ActionEngine, ActionInput, ActionOutcome, ActionResult, AppEvent, ComputeLayout, Config,
-    EventEngine, FooterWidget, HandleAction, PuzzleStyle, PuzzleWidget, RulesWidget,
+    ActionEngine, ActionInput, ActionOutcome, ActionResult, AppEvent, ColRulesWidget,
+    ComputeLayout, Config, EventEngine, FooterWidget, HandleAction, PuzzleStyle, PuzzleWidget,
+    RowRulesWidget,
 };
 
 const POLL_DURATION: Duration = Duration::from_millis(30);
@@ -45,8 +48,8 @@ pub struct App {
 
     // Widgets
     puzzle_widget: PuzzleWidget,
-    rules_left: RulesWidget,
-    rules_top: RulesWidget,
+    rules_left: RowRulesWidget,
+    rules_top: ColRulesWidget,
     footer: FooterWidget,
 
     // Layouts
@@ -55,8 +58,8 @@ pub struct App {
 
 impl App {
     pub fn new(puzzle: Puzzle, rules: Rules, style: PuzzleStyle, config: Config) -> Self {
-        let rules_left = RulesWidget::new(rules.rows.clone(), Direction::Vertical);
-        let rules_top = RulesWidget::new(rules.cols.clone(), Direction::Horizontal);
+        let rules_left = RowRulesWidget::new("Rules [Rows]".to_string(), rules.rows.clone());
+        let rules_top = ColRulesWidget::new("Rules [Cols]".to_string(), rules.cols.clone());
 
         let state = AppState::new(puzzle, rules, style, config.settings);
         let events = EventEngine::new(config.actions.clone(), TICK_DURATION);
@@ -156,7 +159,7 @@ impl App {
     fn render(&mut self, frame: &mut Frame) {
         frame.render_stateful_widget_ref(
             &self.puzzle_widget,
-            self.state.puzzle.viewport,
+            self.state.puzzle.area,
             &mut self.state,
         );
         frame.render_stateful_widget_ref(
@@ -177,11 +180,11 @@ impl App {
     fn draw_puzzle_scrollbars(&mut self, frame: &mut Frame, area: Rect) {
         // Common properties for both scrollbars
         let style = Style::default().fg(Color::Gray);
-        let visible = self.state.puzzle.visible_cells();
+        let vp = &self.state.puzzle.viewport;
 
         // Display scrollbar to scroll through puzzle rows
         let rows = self.state.puzzle.puzzle.rows() as usize;
-        let visible_rows = visible.height as usize;
+        let visible_rows = vp.visible_rows() as usize;
         let row = self.state.puzzle.scroll.row as usize;
 
         if rows > visible_rows {
@@ -204,7 +207,7 @@ impl App {
 
         // Display scrollbar to scroll through puzzle columns
         let cols = self.state.puzzle.puzzle.cols() as usize;
-        let visible_cols = visible.width as usize;
+        let visible_cols = vp.visible_cols() as usize;
         let col = self.state.puzzle.scroll.col as usize;
 
         if cols > visible_cols {

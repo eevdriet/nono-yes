@@ -1,7 +1,7 @@
 use nono::{Axis, Fill, Position, Puzzle};
-use ratatui::layout::{Position as AppPosition, Rect, Size};
+use ratatui::layout::{Margin, Position as AppPosition, Rect, Size};
 
-use crate::{PuzzleStyle, Selection};
+use crate::{PuzzleStyle, Selection, Viewport};
 
 #[derive(Debug)]
 pub struct PuzzleState {
@@ -15,8 +15,10 @@ pub struct PuzzleState {
     /// Position within the puzzle for solving
     pub cursor: AppPosition,
 
-    /// Viewport that contains the visible area of the puzzle
-    pub viewport: Rect,
+    /// Area used to draw the widget
+    pub area: Rect,
+
+    pub viewport: Viewport,
 
     /// Offset of the puzzle with its top-left most cell
     pub scroll: Position,
@@ -35,7 +37,8 @@ impl PuzzleState {
 
             selection: Selection::empty(),
             cursor: AppPosition::default(),
-            viewport: Rect::default(),
+            area: Rect::default(),
+            viewport: Viewport::default(),
             scroll: Position::default(),
             motion_axis: Axis::default(),
         }
@@ -47,14 +50,14 @@ impl PuzzleState {
         Rect::new(0, 0, width, height)
     }
 
-    pub fn screen_to_puzzle(&self, screen_pos: AppPosition) -> Option<Position> {
+    pub fn screen_to_puzzle(&self, area: Rect, screen_pos: AppPosition) -> Option<Position> {
         let puzzle = &self.puzzle;
 
         // Start from the relative position to the viewport
-        let mut x = screen_pos.x.checked_sub(self.viewport.x)?;
-        let mut y = screen_pos.y.checked_sub(self.viewport.y)?;
+        let mut x = screen_pos.x.checked_sub(area.x)?;
+        let mut y = screen_pos.y.checked_sub(area.y)?;
 
-        tracing::debug!("pos: {screen_pos:?} + viewport: {:?}", self.viewport);
+        tracing::debug!("pos: {screen_pos:?} + viewport: {:?}", area);
         tracing::debug!("pos relative to viewport: {:?}", (x, y));
 
         let cell_width = self.style.cell_width;
@@ -87,9 +90,11 @@ impl PuzzleState {
     }
 
     pub fn puzzle_to_screen(&self, puzzle_pos: Position) -> Option<AppPosition> {
+        let vp = &self.viewport;
+
         // Start from the viewport origin
-        let mut x = self.viewport.x;
-        let mut y = self.viewport.y;
+        let mut x = vp.area.x;
+        let mut y = vp.area.y;
 
         // Determine the puzzle position visible within the viewport
         let col = puzzle_pos.col.checked_sub(self.scroll.col)?;
@@ -111,16 +116,13 @@ impl PuzzleState {
         Some(AppPosition::new(x, y))
     }
 
-    pub fn visible_cells(&self) -> Size {
+    fn visible_cells(&self, area: Rect) -> Size {
         let puzzle = &self.puzzle;
 
-        let top_left = AppPosition::new(self.viewport.x, self.viewport.y);
-        let bottom_right = AppPosition::new(
-            self.viewport.x + self.viewport.width - 1,
-            self.viewport.y + self.viewport.height - 1,
-        );
+        let top_left = AppPosition::new(area.x, area.y);
+        let bottom_right = AppPosition::new(area.x + area.width - 1, area.y + area.height - 1);
 
-        let start = self.screen_to_puzzle(top_left).unwrap_or_else(|| {
+        let start = self.screen_to_puzzle(area, top_left).unwrap_or_else(|| {
             panic!(
                 "Viewport top-left {top_left:?} should be in-bounds ({} rows, {} cols)",
                 puzzle.rows(),
@@ -128,15 +130,47 @@ impl PuzzleState {
             )
         });
 
-        let end = self.screen_to_puzzle(bottom_right).unwrap_or_else(|| {
-            panic!(
-                "Viewport bottom-right {bottom_right:?} should be in-bounds ({} rows, {} cols)",
-                puzzle.rows(),
-                puzzle.cols()
-            )
-        });
+        let end = self
+            .screen_to_puzzle(area, bottom_right)
+            .unwrap_or_else(|| {
+                panic!(
+                    "Viewport bottom-right {bottom_right:?} should be in-bounds ({} rows, {} cols)",
+                    puzzle.rows(),
+                    puzzle.cols()
+                )
+            });
 
         Size::new(end.col - start.col + 1, end.row - start.row + 1)
+    }
+
+    pub fn create_viewport(&self, area: Rect) -> Viewport {
+        // Shrink inwards by 1 to draw a border
+        let inner = area.inner(Margin::new(1, 1));
+
+        let visible = self.visible_cells(inner);
+        let rows = self.puzzle.rows();
+        let row_start = self.scroll.row;
+        let row_end = (row_start + visible.height).min(rows);
+        tracing::debug!(
+            "Row range: {row_start}..{row_end} (with {} visible rows and {rows} puzzle rows)",
+            visible.height
+        );
+
+        let cols = self.puzzle.cols();
+        let col_start = self.scroll.col;
+        let col_end = (col_start + visible.width).min(cols);
+        tracing::debug!(
+            "Col range: {col_start}..{col_end} (with {} visible cols and {cols} puzzle cols)",
+            visible.width
+        );
+
+        Viewport {
+            row_start,
+            row_end,
+            col_start,
+            col_end,
+            area: inner,
+        }
     }
 
     pub fn size(&self) -> Size {
@@ -156,7 +190,8 @@ impl PuzzleState {
 
     pub fn keep_cursor_visible(&mut self) {
         let (col, row) = self.cursor.into();
-        let (vis_cols, vis_rows) = self.visible_cells().into();
+        let vp = &self.viewport;
+        let (vis_cols, vis_rows) = (vp.visible_cols(), vp.visible_rows());
 
         let scroll = &mut self.scroll;
 

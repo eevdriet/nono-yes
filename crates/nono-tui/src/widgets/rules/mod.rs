@@ -1,220 +1,52 @@
 mod actions;
+mod left;
 mod state;
+mod top;
 
+pub use left::*;
 pub use state::*;
+pub use top::*;
 
-use nono::{Fill, Line, LineValidation, Rule, Run};
-use ratatui::{
-    layout::{Alignment, Direction},
-    prelude::{Buffer, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line as TextLine, Span},
-    widgets::{Paragraph, StatefulWidgetRef, Widget},
-};
+use nono::{Fill, Line, LineValidation, Rule};
+use ratatui::style::{Color, Modifier, Style};
 
 use crate::AppState;
 
-#[derive(Debug)]
-pub struct RulesWidget {
-    rules: Vec<Rule>,
-    direction: Direction,
-}
+pub fn run_style(fill: Fill, rule: &Rule, line: Line, state: &AppState) -> Style {
+    let validation = state.puzzle.puzzle.validate(rule, line);
 
-impl StatefulWidgetRef for &RulesWidget {
-    type State = AppState;
+    let color = state
+        .puzzle
+        .style
+        .fill_color(fill)
+        .expect("Fill {fill:?} should have a defined color");
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        match self.direction {
-            Direction::Horizontal => self.draw_col_rules(area, buf, state),
-            Direction::Vertical => self.draw_row_rules(area, buf, state),
-        }
-    }
-}
+    let base = Style::default().fg(color);
 
-impl RulesWidget {
-    pub fn new(rules: Vec<Rule>, direction: Direction) -> Self {
-        Self { rules, direction }
-    }
+    let mut style = match validation {
+        // Cross out solved lines
+        LineValidation::Solved => base
+            .fg(Color::DarkGray)
+            .add_modifier(Modifier::DIM | Modifier::CROSSED_OUT),
 
-    fn draw_row_rules(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        let visible_rows = state.puzzle.visible_cells().height;
-        let cell_height = state.puzzle.style.cell_height;
+        // Shade invalid rules in red
+        LineValidation::Invalid => base
+            .fg(Color::Red)
+            .add_modifier(Modifier::UNDERLINED | Modifier::BOLD),
 
-        // Determine which rows to display the rules for
-        let rows = state.puzzle.puzzle.rows();
-        let row_start = state.puzzle.scroll.row;
-        let row_end = (row_start + visible_rows).min(rows);
+        _ => base,
+    };
 
-        // Keep track of the vertical position
-        let mut y = state.puzzle.viewport.y;
+    // Highlight the active lines
+    let is_active = match line {
+        Line::Row(row) if state.puzzle.cursor.y == row => true,
+        Line::Col(col) if state.puzzle.cursor.x == col => true,
+        _ => false,
+    };
 
-        for row in row_start..row_end {
-            let rule = &self.rules[row as usize];
-            let line = Line::Row(row);
-
-            let mut spans: Vec<Span> = Vec::new();
-            let runs = match rule.runs().len() {
-                0 => &vec![Run {
-                    count: 0,
-                    fill: Fill::Blank,
-                }],
-                _ => rule.runs(),
-            };
-
-            // Skip grid dividor row
-            let mut width = 0;
-
-            for run in runs.iter() {
-                let text = run.count.to_string();
-                let len = text.len() as u16;
-
-                // Don't overflow the area if the rule is too long to draw
-                if width >= area.width {
-                    break;
-                }
-                // Instead hide the remaining runs
-                else if width + len >= area.width {
-                    spans.push(Span::raw("⋯"));
-                    break;
-                }
-
-                // If not, draw the run
-                width += len;
-
-                let style = self.run_style(run.fill, rule, line, state);
-                let span = Span::styled(text, style);
-
-                spans.push(span);
-
-                // Add a dividor to the next run if it fits
-                if width < area.width {
-                    spans.push(Span::raw(" "));
-                    width += 1;
-                }
-            }
-
-            let line = TextLine::from(spans);
-            let area = Rect {
-                x: area.x,
-                y,
-                width: area.width,
-                height: cell_height,
-            };
-
-            Paragraph::new(line)
-                .alignment(Alignment::Right) // clues hug puzzle
-                .render(area, buf);
-
-            // Advance to next viewport row and skip grid dividors
-            y += cell_height;
-
-            if let Some(size) = state.puzzle.style.grid_size
-                && (row + 1).is_multiple_of(size)
-                && row != rows - 1
-            {
-                y += cell_height;
-            }
-        }
+    if is_active {
+        style = style.add_modifier(Modifier::BOLD);
     }
 
-    fn draw_col_rules(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        let cell_width = state.puzzle.style.cell_width as usize;
-
-        // Determine which columns to display the rules for
-        let cols = state.puzzle.puzzle.cols();
-        let visible_cols = state.puzzle.visible_cells().width;
-
-        let col_start = state.puzzle.scroll.col;
-        let col_end = (col_start + visible_cols).min(cols);
-
-        // Keep track of the horizontal position
-        let mut x = state.puzzle.viewport.x;
-
-        for (c, col) in (col_start..col_end).enumerate() {
-            let c = c as u16;
-            let line = Line::Col(col);
-
-            // Derive the runs and display a single 0 if none
-            let rule = &self.rules[col as usize];
-            let runs = match rule.runs().len() {
-                0 => &vec![Run {
-                    count: 0,
-                    fill: Fill::Blank,
-                }],
-                _ => rule.runs(),
-            };
-
-            //
-            let len = runs.len() as u16;
-            let height = area.height;
-
-            let mut y = area.bottom() - 1;
-
-            if len > height {
-                let text = format!("{:>cell_width$}", "⋯");
-                let style = self.run_style(Fill::Blank, rule, line, state);
-
-                buf.set_string(x, y, text, style);
-                y -= 1;
-            }
-
-            for r in (0..len.min(height)).rev() {
-                let run = runs[r as usize];
-                let text = format!("{:>cell_width$}", run.count);
-                let style = self.run_style(run.fill, rule, line, state);
-
-                buf.set_string(x, y, text, style);
-                y = y.saturating_sub(1);
-            }
-
-            // Advance to next viewport column and skip grid dividors
-            x += cell_width as u16;
-
-            if let Some(size) = state.puzzle.style.grid_size
-                && (c + 1).is_multiple_of(size)
-                && c != cols - 1
-            {
-                x += 1;
-            }
-        }
-    }
-
-    fn run_style(&self, fill: Fill, rule: &Rule, line: Line, state: &AppState) -> Style {
-        let validation = state.puzzle.puzzle.validate(rule, line);
-
-        let color = state
-            .puzzle
-            .style
-            .fill_color(fill)
-            .expect("Fill {fill:?} should have a defined color");
-
-        let base = Style::default().fg(color);
-
-        let mut style = match validation {
-            // Cross out solved lines
-            LineValidation::Solved => base
-                .fg(Color::DarkGray)
-                .add_modifier(Modifier::DIM | Modifier::CROSSED_OUT),
-
-            // Shade invalid rules in red
-            LineValidation::Invalid => base
-                .fg(Color::Red)
-                .add_modifier(Modifier::UNDERLINED | Modifier::BOLD),
-
-            _ => base,
-        };
-
-        // Highlight the active lines
-        let is_active = match line {
-            Line::Row(row) if state.puzzle.cursor.y == row => true,
-            Line::Col(col) if state.puzzle.cursor.x == col => true,
-            _ => false,
-        };
-
-        if is_active {
-            style = style.add_modifier(Modifier::BOLD);
-        }
-
-        style
-    }
+    style
 }

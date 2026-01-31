@@ -100,21 +100,22 @@ impl ComputeLayout for App {
         tracing::debug!("Puzzle: {puzzle_area:?}");
 
         // Finally, use the puzzle height to split into the left rules and info section
-        let [info_area, rules_left_area] = Layout::default()
+        let [info_area, rules_left_area, _] = Layout::default()
             .direction(Direction::Vertical)
             .constraints(vec![
                 Constraint::Min(0),
-                Constraint::Length(puzzle_size.height),
+                Constraint::Length(puzzle_area.height),
+                Constraint::Length(footer_area.height),
             ])
             .areas(left);
 
         tracing::debug!("Rules left: {rules_left_area:?}");
         tracing::debug!("Info: {info_area:?}");
 
-        self.state.puzzle.viewport = puzzle_area;
+        self.state.puzzle.area = puzzle_area;
+        self.state.puzzle.viewport = self.state.puzzle.create_viewport(puzzle_area);
         self.state.rules_top.area = rules_top_area;
         self.state.rules_left.area = rules_left_area;
         self.footer_area = footer_area;
     }
 }
-

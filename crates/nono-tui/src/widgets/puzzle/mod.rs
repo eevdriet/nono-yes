@@ -1,10 +1,12 @@
 mod actions;
 mod state;
 mod style;
+mod viewport;
 
 pub use actions::*;
 pub use state::*;
 pub use style::*;
+pub use viewport::*;
 
 use std::fmt::Display;
 
@@ -16,7 +18,7 @@ use ratatui::{
     widgets::StatefulWidgetRef,
 };
 
-use crate::{AppState, app_to_puzzle};
+use crate::{AppState, Focus, app_to_puzzle};
 
 #[derive(Debug, Copy, Clone)]
 pub struct PuzzleWidget;
@@ -25,40 +27,46 @@ impl StatefulWidgetRef for &PuzzleWidget {
     type State = AppState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        let visible = state.puzzle.visible_cells();
+        self.draw_borders(area, buf, state);
+        self.draw_puzzle(area, buf, state);
+    }
+}
+
+impl PuzzleWidget {
+    fn draw<T>(&self, area: Rect, buf: &mut Buffer, pos: AppPosition, content: T, style: Style)
+    where
+        T: AsRef<str> + Display,
+    {
+        if !area.contains(pos) {
+            tracing::debug!("Not writing {content} at {pos}, falls outside the area {area:?}");
+            return;
+        }
+
+        buf.set_string(pos.x, pos.y, content, style);
+    }
+
+    fn draw_puzzle(&self, area: Rect, buf: &mut Buffer, state: &AppState) {
         let cell_width = state.puzzle.style.cell_width as usize;
         let div_style = Style::default().fg(Color::DarkGray);
 
         // Determine which rows and columns to display
-        let rows = state.puzzle.puzzle.rows();
-        let row_start = state.puzzle.scroll.row;
-        let row_end = (row_start + visible.height).min(rows);
-        tracing::debug!(
-            "Row range: {row_start}..{row_end} (with {} visible rows and {rows} puzzle rows)",
-            visible.height
-        );
+        // Keep track of which positions to draw in the viewport
+        let vp = &state.puzzle.viewport;
+        let x_start = vp.area.x;
+        let mut y = vp.area.y;
 
         let cols = state.puzzle.puzzle.cols();
-        let col_start = state.puzzle.scroll.col;
-        let col_end = (col_start + visible.width).min(cols);
-        tracing::debug!(
-            "Col range: {col_start}..{col_end} (with {} visible cols and {cols} puzzle cols)",
-            visible.width
-        );
-
-        // Keep track of which positions to draw in the viewport
-        let x_start = state.puzzle.viewport.x;
-        let mut y = state.puzzle.viewport.y;
+        let rows = state.puzzle.puzzle.rows();
 
         // Keep track of selected positions
         let bounds = state.puzzle.bounds();
         let range = state.puzzle.selection.range();
         let selection = range.positions(&bounds);
 
-        for row in row_start..row_end {
+        for row in vp.row_start..vp.row_end {
             let mut x = x_start;
 
-            for col in col_start..col_end {
+            for col in vp.col_start..vp.col_end {
                 let pos = AppPosition::new(col, row);
                 let fill = state.puzzle.puzzle[app_to_puzzle(pos)];
                 let is_selected = selection.contains(&pos);
@@ -95,7 +103,7 @@ impl StatefulWidgetRef for &PuzzleWidget {
                 let mut div_x = x_start;
                 let div_y = y + state.puzzle.style.cell_height;
 
-                for col in col_start..col_end {
+                for col in vp.col_start..vp.col_end {
                     let text = "─".repeat(cell_width);
                     self.draw(area, buf, (div_x, div_y).into(), text, div_style);
                     div_x += cell_width as u16;
@@ -113,19 +121,40 @@ impl StatefulWidgetRef for &PuzzleWidget {
             y += state.puzzle.style.cell_height;
         }
     }
-}
 
-impl PuzzleWidget {
-    fn draw<T>(&self, area: Rect, buf: &mut Buffer, pos: AppPosition, content: T, style: Style)
-    where
-        T: AsRef<str> + Display,
-    {
-        if !area.contains(pos) {
-            tracing::debug!("Not writing {content} at {pos}, falls outside the area {area:?}");
-            return;
+    fn draw_borders(&self, area: Rect, buf: &mut Buffer, state: &AppState) {
+        let mut style = Style::default().fg(Color::Gray).dim();
+        if matches!(state.focus, Focus::Puzzle) {
+            style = style.fg(Color::White).not_dim().bold();
         }
 
-        buf.set_string(pos.x, pos.y, content, style);
+        // Corners
+        let x_start = area.x;
+        let y_start = area.y;
+        let x_end = area.right() - 1;
+        let y_end = area.bottom() - 1;
+
+        // Top and bottom borders
+        for x in x_start..=x_end {
+            buf.set_string(x, y_start, "─", style);
+        }
+        for x in x_start..=x_end {
+            buf.set_string(x, y_end, "─", style);
+        }
+
+        // Left and right borders
+        for y in y_start..=y_end {
+            buf.set_string(x_start, y, "│", style);
+        }
+        for y in y_start..=y_end {
+            buf.set_string(x_end, y, "│", style);
+        }
+
+        // Corners
+        buf.set_string(x_start, y_start, "┌", style);
+        buf.set_string(x_end, y_start, "┐", style);
+        buf.set_string(x_start, y_end, "└", style);
+        buf.set_string(x_end, y_end, "┘", style);
     }
 
     fn cell_style(fill: &Fill, pos: AppPosition, is_selected: bool, state: &AppState) -> Style {
@@ -149,20 +178,22 @@ impl PuzzleWidget {
         };
 
         // Active line
-        if pos.x == state.puzzle.cursor.x || pos.y == state.puzzle.cursor.y {
-            if !matches!(fill, Fill::Color(_)) {
-                style = style.fg(Color::White);
+        if matches!(state.focus, Focus::Puzzle) {
+            if pos.x == state.puzzle.cursor.x || pos.y == state.puzzle.cursor.y {
+                if !matches!(fill, Fill::Color(_)) {
+                    style = style.fg(Color::White);
+                }
+
+                // Active cell
+                if pos == state.puzzle.cursor {
+                    style = style.add_modifier(Modifier::BOLD | Modifier::SLOW_BLINK)
+                }
             }
 
-            // Active cell
-            if pos == state.puzzle.cursor {
-                style = style.add_modifier(Modifier::BOLD | Modifier::SLOW_BLINK)
+            // // Visual selection
+            if is_selected {
+                style = style.fg(Color::LightCyan).add_modifier(Modifier::BOLD)
             }
-        }
-
-        // // Visual selection
-        if is_selected {
-            style = style.fg(Color::LightCyan).add_modifier(Modifier::BOLD)
         }
 
         style
