@@ -39,7 +39,14 @@ impl Rule {
         } as usize;
 
         let runs = &self.runs[start..end];
-        let len = self.prefix_lens[end - 1] - self.prefix_lens[start];
+
+        let len = if runs.is_empty() {
+            0
+        } else if start == 0 {
+            self.prefix_lens[end - 1]
+        } else {
+            self.prefix_lens[end - 1] - self.prefix_lens[start]
+        };
 
         RunsSlice { runs, len }
     }

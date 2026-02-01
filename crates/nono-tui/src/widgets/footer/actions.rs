@@ -9,7 +9,7 @@ impl HandleAction for &FooterWidget {
         &self,
         input: ActionInput,
         state: &mut AppState,
-    ) -> Result<(ActionOutcome, MotionRange)> {
+    ) -> Result<(ActionOutcome, Option<MotionRange>)> {
         let action = input.action;
 
         if let Fill::Color(curr) = state.puzzle.fill {
@@ -24,7 +24,7 @@ impl HandleAction for &FooterWidget {
             state.puzzle.fill = Fill::Color(next);
         }
 
-        Ok((ActionOutcome::Consumed, MotionRange::Empty))
+        Ok((ActionOutcome::Consumed, None))
     }
 
     fn handle_command(&self, input: ActionInput, _state: &mut AppState) -> crate::ActionResult {

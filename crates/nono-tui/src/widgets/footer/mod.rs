@@ -10,7 +10,7 @@ use ratatui::{
     widgets::{LineGauge, Paragraph, StatefulWidgetRef, Widget},
 };
 
-use crate::{AppState, PuzzleState};
+use crate::{AppState, Focus, MotionRange, PuzzleState};
 
 #[derive(Debug)]
 pub struct FooterWidget;
@@ -142,12 +142,8 @@ impl FooterWidget {
             .render(area, buf);
 
         // Middle
-        let row_rule = &state.rules_left.rules[cursor.y as usize];
-        let col_rule = &state.rules_top.rules[cursor.x as usize];
-
-        Span::styled(format!("{}R, {}C", row_rule.len(), col_rule.len()), style)
-            .into_centered_line()
-            .render(area, buf);
+        let rule_span = self.rule_selection_span(state).into_centered_line();
+        rule_span.render(area, buf);
 
         // Right
         // Show the dimensions of the puzzle
@@ -161,5 +157,41 @@ impl FooterWidget {
         )
         .into_right_aligned_line()
         .render(area, buf);
+    }
+
+    fn rule_selection_span(&self, state: &mut AppState) -> Span<'_> {
+        let cursor = *state.cursor();
+        let style = Style::default().fg(Color::White);
+        let range = state.selection().range();
+
+        let row_rule = &state.rules_left.rules[cursor.y as usize];
+        let col_rule = &state.rules_top.rules[cursor.x as usize];
+
+        tracing::info!("Run selection span: {range:?}");
+
+        match (state.focus, range) {
+            // Show the selected runs on the active left rule
+            (Focus::RulesLeft, MotionRange::Block(Rect { x, width, .. })) => {
+                let len = row_rule.slice(x..x + width).len();
+                Span::styled(len.to_string(), style)
+            }
+            // Show the selected runs on the active top rule
+            (Focus::RulesTop, MotionRange::Block(Rect { y, height, .. })) => {
+                let len = col_rule.slice(y..y + height).len();
+                Span::styled(len.to_string(), style)
+            }
+
+            // Show the length of both rules
+            (Focus::Puzzle, _) => {
+                Span::styled(format!("{}R, {}C", row_rule.len(), col_rule.len()), style)
+            }
+
+            // Show length of the active rule
+            (Focus::RulesLeft, _) => Span::styled(row_rule.len().to_string(), style),
+            (Focus::RulesTop, _) => Span::styled(col_rule.len().to_string(), style),
+
+            // Don't display anything by default
+            _ => Span::raw(""),
+        }
     }
 }
