@@ -2,7 +2,7 @@ use nono::Error;
 use ratatui::layout::Position as AppPosition;
 
 use crate::{
-    Action, ActionInput, ActionKind, ActionOutcome, AppState, HandleAction, History, Mode,
+    Action, ActionInput, ActionKind, ActionOutcome, AppState, Focus, HandleAction, History, Mode,
     MotionRange, SelectionKind,
 };
 
@@ -105,7 +105,7 @@ impl ActionEngine {
 
                     let (_, range) = handler.handle_motion(input, state)?;
 
-                    self.handle_operator(handler, next, Some(range), state)
+                    self.handle_operator(handler, next, range, state)
                 } else {
                     let (status, _) = handler.handle_motion(input, state)?;
                     Ok(status)
@@ -128,7 +128,7 @@ impl ActionEngine {
 
         // Possibly apply it to an active operator
         if let Some(op) = self.pending_operator.take() {
-            return handler.handle_operator(input.with_action(op), Some(range), state);
+            return handler.handle_operator(input.with_action(op), range, state);
         }
 
         Ok(status)
@@ -140,18 +140,27 @@ impl ActionEngine {
         input: ActionInput,
         state: &mut AppState,
     ) -> ActionResult {
+        let focus = state.focus;
         let selection = state.selection();
 
         match input.action.kind() {
             ActionKind::Motion => {
+                let cursor_before = *state.cursor();
                 let (status, range) = handler.handle_motion(input, state)?;
 
-                if let MotionRange::Single(pos) = range {
-                    state.selection().update(pos);
+                if let Some(range) = range {
+                    let line_range = constrain_range_to_rule_line(focus, cursor_before, range);
+
+                    if let MotionRange::Single(pos) = line_range {
+                        state.selection().update(pos);
+                    }
+                } else {
+                    state.selection().reset();
                 }
 
                 Ok(status)
             }
+
             ActionKind::Operator => {
                 let range = selection.range();
                 self.exit_visual(state);
@@ -159,6 +168,7 @@ impl ActionEngine {
 
                 self.handle_operator(handler, input, Some(range), state)
             }
+
             ActionKind::Mode => self.switch_mode(input.action, state),
             ActionKind::Command => handler.handle_command(input, state),
         }
@@ -183,6 +193,11 @@ impl ActionEngine {
 
         match mode {
             Mode::Visual(kind) => {
+                let kind = match state.focus {
+                    Focus::RulesTop | Focus::RulesLeft => SelectionKind::Cells,
+                    _ => kind,
+                };
+
                 self.enter_visual(kind, *state.cursor(), state);
             }
             _ => {
@@ -197,10 +212,47 @@ impl ActionEngine {
     fn enter_visual(&mut self, kind: SelectionKind, cursor: AppPosition, state: &mut AppState) {
         self.mode = Mode::Visual(kind);
 
+        tracing::info!("Starting {kind:?} with cursor {cursor:?}");
         state.selection().start(cursor, kind);
     }
 
     fn exit_visual(&mut self, state: &mut AppState) {
         state.selection().reset();
+    }
+}
+
+fn constrain_range_to_rule_line(
+    focus: Focus,
+    cursor_before: AppPosition,
+    range: MotionRange,
+) -> MotionRange {
+    match focus {
+        Focus::RulesLeft => match range {
+            MotionRange::Block(mut rect) => {
+                rect.y = cursor_before.y;
+                rect.height = 1;
+                MotionRange::Block(rect)
+            }
+            MotionRange::Rows { .. } => MotionRange::Rows {
+                start: cursor_before.y,
+                end: cursor_before.y,
+            },
+            other => other,
+        },
+
+        Focus::RulesTop => match range {
+            MotionRange::Block(mut rect) => {
+                rect.x = cursor_before.x;
+                rect.width = 1;
+                MotionRange::Block(rect)
+            }
+            MotionRange::Cols { .. } => MotionRange::Cols {
+                start: cursor_before.x,
+                end: cursor_before.x,
+            },
+            other => other,
+        },
+
+        _ => range,
     }
 }

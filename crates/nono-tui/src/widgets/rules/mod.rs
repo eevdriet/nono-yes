@@ -17,11 +17,11 @@ use crate::{AppState, Focus};
 
 pub fn run_style(
     fill: Fill,
-    rule: &Rule,
+    _rule: &Rule,
     idx: u16,
     line: Line,
     validation: &LineValidation,
-    state: &AppState,
+    state: &mut AppState,
 ) -> Style {
     let color = state
         .puzzle
@@ -45,38 +45,36 @@ pub fn run_style(
         _ => base,
     };
 
-    let is_active = match state.focus {
-        // Highlight all runs in the active row/column
-        Focus::Puzzle => {
-            let cursor = state.puzzle.cursor;
+    let focus = state.focus;
+    let cursor = *state.cursor();
+    let pos = match line {
+        Line::Row(row) => Position::new(idx, row),
+        Line::Col(col) => Position::new(col, idx),
+    };
+    let is_left = matches!(line, Line::Row(_)) && matches!(focus, Focus::RulesLeft);
+    let is_top = matches!(line, Line::Col(_)) && matches!(focus, Focus::RulesTop);
 
-            match line {
-                Line::Row(row) => cursor.y == row,
-                Line::Col(col) => cursor.x == col,
-            }
-        }
-        // Highlight the cursor run in the active line
-        Focus::RulesLeft => {
-            let cursor = state.rules_left.cursor;
+    let is_active = match focus {
+        // Highlight all runs in the active row/column when puzzle focused
+        Focus::Puzzle => match line {
+            Line::Row(row) => cursor.y == row,
+            Line::Col(col) => cursor.x == col,
+        },
 
-            match line {
-                Line::Row(row) => Position::new(idx, row) == cursor,
-                Line::Col(col) => Position::new(col, idx) == cursor,
-            }
-        }
-        // Highlight the cursor run in the active line
-        Focus::RulesTop => {
-            let cursor = state.rules_top.cursor;
-
-            match line {
-                Line::Row(row) => Position::new(idx, row) == cursor,
-                Line::Col(col) => Position::new(col, idx) == cursor,
-            }
-        }
+        // Highlight the cursor run in the active line when rules focused
+        _ if is_left || is_top => pos == cursor,
         _ => false,
     };
 
-    if is_active {
+    let selection = &state.selection();
+    let is_selected = (is_left || is_top) && selection.contains(pos);
+
+    if is_selected {
+        style = style.add_modifier(Modifier::UNDERLINED);
+    }
+
+    if is_active || is_selected {
+        tracing::info!("Found validation {validation:?}");
         style = style.add_modifier(Modifier::BOLD).not_dim();
     }
 

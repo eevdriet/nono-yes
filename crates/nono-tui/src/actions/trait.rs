@@ -22,8 +22,8 @@ pub trait HandleAction {
         &self,
         _input: ActionInput,
         _state: &mut AppState,
-    ) -> Result<(ActionOutcome, MotionRange)> {
-        Ok((ActionOutcome::Consumed, MotionRange::Empty))
+    ) -> Result<(ActionOutcome, Option<MotionRange>)> {
+        Ok((ActionOutcome::Consumed, None))
     }
 
     fn handle_mode(&self, _input: ActionInput, _state: &mut AppState) -> ActionResult {

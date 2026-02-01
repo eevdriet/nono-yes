@@ -45,22 +45,23 @@ impl PuzzleWidget {
         buf.set_string(pos.x, pos.y, content, style);
     }
 
-    fn draw_puzzle(&self, area: Rect, buf: &mut Buffer, state: &AppState) {
-        let cell_width = state.puzzle.style.cell_width as usize;
+    fn draw_puzzle(&self, area: Rect, buf: &mut Buffer, app_state: &AppState) {
+        let state = &app_state.puzzle;
+        let cell_width = state.style.cell_width as usize;
         let div_style = Style::default().fg(Color::DarkGray);
 
         // Determine which rows and columns to display
         // Keep track of which positions to draw in the viewport
-        let vp = &state.puzzle.viewport;
+        let vp = &state.viewport;
         let x_start = vp.area.x;
         let mut y = vp.area.y;
 
-        let cols = state.puzzle.puzzle.cols();
-        let rows = state.puzzle.puzzle.rows();
+        let cols = state.puzzle.cols();
+        let rows = state.puzzle.rows();
 
         // Keep track of selected positions
-        let bounds = state.puzzle.bounds();
-        let range = state.puzzle.selection.range();
+        let bounds = state.bounds();
+        let range = state.selection.range();
         let selection = range.positions(&bounds);
 
         for row in vp.row_start..vp.row_end {
@@ -68,13 +69,13 @@ impl PuzzleWidget {
 
             for col in vp.col_start..vp.col_end {
                 let pos = AppPosition::new(col, row);
-                let fill = state.puzzle.puzzle[app_to_puzzle(pos)];
+                let fill = state.puzzle[app_to_puzzle(pos)];
                 let is_selected = selection.contains(&pos);
-                let style = PuzzleWidget::cell_style(&fill, pos, is_selected, state);
+                let style = PuzzleWidget::cell_style(&fill, pos, is_selected, app_state);
 
                 // Draw cell
-                let repeat = state.puzzle.style.cell_width as usize;
-                let symbol = match pos == state.puzzle.cursor {
+                let repeat = state.style.cell_width as usize;
+                let symbol = match pos == state.cursor {
                     true => 'E',
                     false => fill.symbol(),
                 }
@@ -83,10 +84,10 @@ impl PuzzleWidget {
 
                 self.draw(area, buf, (x, y).into(), symbol, style);
 
-                x += state.puzzle.style.cell_width;
+                x += state.style.cell_width;
 
                 // Draw vertical divider
-                if let Some(size) = state.puzzle.style.grid_size
+                if let Some(size) = state.style.grid_size
                     && col != cols - 1
                     && (col + 1) % size == 0
                 {
@@ -96,12 +97,12 @@ impl PuzzleWidget {
             }
 
             // Draw horizontal divider
-            if let Some(size) = state.puzzle.style.grid_size
+            if let Some(size) = state.style.grid_size
                 && (row + 1).is_multiple_of(size)
                 && row != rows - 1
             {
                 let mut div_x = x_start;
-                let div_y = y + state.puzzle.style.cell_height;
+                let div_y = y + state.style.cell_height;
 
                 for col in vp.col_start..vp.col_end {
                     let text = "─".repeat(cell_width);
@@ -118,7 +119,7 @@ impl PuzzleWidget {
             }
 
             // Advance y by cell height
-            y += state.puzzle.style.cell_height;
+            y += state.style.cell_height;
         }
     }
 

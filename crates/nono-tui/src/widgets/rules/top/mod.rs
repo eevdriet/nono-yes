@@ -1,7 +1,5 @@
 mod actions;
 
-pub use actions::*;
-
 use nono::{Fill, Line, LineValidation, Rule, Run};
 use ratatui::{
     layout::Alignment,
@@ -57,7 +55,7 @@ impl ColRulesWidget {
     }
 
     fn draw(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        let vp = &state.puzzle.viewport;
+        let vp = state.puzzle.viewport.clone();
         let cols = state.puzzle.puzzle.cols();
         let cell_width = state.puzzle.style.cell_width as usize;
 
@@ -96,7 +94,7 @@ impl ColRulesWidget {
         x: u16,
         area: Rect,
         buf: &mut Buffer,
-        state: &AppState,
+        state: &mut AppState,
     ) {
         let runs = match rule.runs().len() {
             0 => &vec![Run {
@@ -140,7 +138,7 @@ impl ColRulesWidget {
         x: u16,
         area: Rect,
         buf: &mut Buffer,
-        state: &AppState,
+        state: &mut AppState,
     ) {
         let cell_width = state.puzzle.style.cell_width;
         let (style, symbol) = status_info(line, validation, state);

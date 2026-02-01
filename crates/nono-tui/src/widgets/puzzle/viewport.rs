@@ -1,6 +1,6 @@
 use ratatui::layout::Rect;
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 pub struct Viewport {
     pub row_start: u16,
     pub row_end: u16,

@@ -1,10 +1,8 @@
 mod actions;
 
-pub use actions::*;
-
 use nono::{Fill, Line, LineValidation, Rule, Run};
 use ratatui::{
-    layout::{Alignment, Margin, Position as AppPosition},
+    layout::{Alignment, Margin},
     prelude::{Buffer, Rect},
     style::{Color, Style},
     text::{Line as TextLine, Span},
@@ -82,10 +80,9 @@ impl RowRulesWidget {
         y: u16,
         area: Rect,
         buf: &mut Buffer,
-        state: &AppState,
+        state: &mut AppState,
     ) {
         let cell_height = state.puzzle.style.cell_height;
-        let row = line.line();
 
         let mut spans: Vec<Span> = Vec::new();
         let runs = match rule.runs().len() {
@@ -100,11 +97,7 @@ impl RowRulesWidget {
         let mut width = 0;
 
         for (r, run) in runs.iter().enumerate() {
-            let pos = AppPosition::new(r as u16, row);
-            let text = match pos == state.rules_left.cursor {
-                true => "A".to_string(),
-                false => run.count.to_string(),
-            };
+            let text = run.count.to_string();
 
             let len = text.len() as u16;
 
@@ -139,14 +132,11 @@ impl RowRulesWidget {
             width: area.width,
             height: cell_height,
         };
+
         TextLine::from(spans)
             .alignment(Alignment::Right)
             .style(Style::reset())
             .render(area.inner(Margin::new(2, 0)), buf);
-
-        // Paragraph::new(line)
-        //     .alignment(Alignment::Right) // clues hug puzzle
-        //     .render(area.inner(Margin::new(2, 0)), buf);
     }
 
     fn draw_status(

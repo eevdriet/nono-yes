@@ -43,6 +43,12 @@ impl Selection {
     pub fn update(&mut self, end: Position) {
         self.end = Some(end);
     }
+
+    pub fn contains(&self, pos: Position) -> bool {
+        let range = self.range();
+        range.contains(pos)
+    }
+
     pub fn range(&self) -> MotionRange {
         let (start, end) = match (self.start, self.end) {
             (Some(s), Some(e)) => (s, e),

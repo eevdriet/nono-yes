@@ -29,6 +29,16 @@ pub enum MotionRange {
 }
 
 impl MotionRange {
+    pub fn contains(&self, pos: Position) -> bool {
+        match self {
+            MotionRange::Empty => false,
+            MotionRange::Single(single) => *single == pos,
+            MotionRange::Block(block) => block.contains(pos),
+            MotionRange::Rows { start, end } => (*start..=*end).contains(&pos.y),
+            MotionRange::Cols { start, end } => (*start..=*end).contains(&pos.x),
+        }
+    }
+
     pub fn positions(&self, bounds: &Rect) -> Vec<Position> {
         let from_rect = |rect: Rect| -> Vec<Position> {
             let mut positions = Vec::new();

@@ -70,8 +70,7 @@ impl HandleAction for &PuzzleWidget {
         &self,
         input: ActionInput,
         state: &mut AppState,
-    ) -> Result<(ActionOutcome, MotionRange)> {
-        tracing::debug!("Selection range: {:?}", state.puzzle.selection.range());
+    ) -> Result<(ActionOutcome, Option<MotionRange>)> {
         let puzzle = &state.puzzle.puzzle;
 
         // Input
@@ -193,7 +192,7 @@ impl HandleAction for &PuzzleWidget {
                 if vp.area.contains(end) {
                     state.puzzle.screen_to_puzzle(vp.area, end).unwrap_or(pos)
                 } else {
-                    return Ok((ActionOutcome::Ignored, MotionRange::Empty));
+                    return Ok((ActionOutcome::Ignored, None));
                 }
             }
 
@@ -211,7 +210,7 @@ impl HandleAction for &PuzzleWidget {
         state.puzzle.cursor = cursor;
         state.puzzle.keep_cursor_visible(cursor);
 
-        Ok((ActionOutcome::Consumed, MotionRange::Single(cursor)))
+        Ok((ActionOutcome::Consumed, Some(MotionRange::Single(cursor))))
     }
 
     fn handle_command(&self, input: ActionInput, state: &mut AppState) -> ActionResult {

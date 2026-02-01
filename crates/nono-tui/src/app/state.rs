@@ -17,8 +17,6 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(puzzle: Puzzle, rules: Rules, style: PuzzleStyle, settings: Settings) -> Self {
-        // let mut settings = settings;
-        // settings.rule_display = RuleDisplay::TryMax;
         let start_fill = Fill::Color(1);
 
         Self {
@@ -32,15 +30,17 @@ impl AppState {
 
     pub fn selection(&mut self) -> &mut Selection {
         match self.focus {
-            Focus::Puzzle => &mut self.puzzle.selection,
-            _ => &mut self.rules_left.selection,
+            Focus::RulesLeft => &mut self.rules_left.selection,
+            Focus::RulesTop => &mut self.rules_top.selection,
+            _ => &mut self.puzzle.selection,
         }
     }
 
     pub fn cursor(&mut self) -> &mut AppPosition {
         match self.focus {
-            Focus::Puzzle => &mut self.puzzle.cursor,
-            _ => &mut self.rules_left.cursor,
+            Focus::RulesLeft => &mut self.rules_left.cursor,
+            Focus::RulesTop => &mut self.rules_top.cursor,
+            _ => &mut self.puzzle.cursor,
         }
     }
 

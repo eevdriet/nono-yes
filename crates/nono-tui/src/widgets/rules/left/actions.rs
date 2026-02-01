@@ -1,4 +1,4 @@
-use nono::{Position, Result, Rule};
+use nono::{Position, Result};
 
 use crate::{
     Action, ActionInput, ActionOutcome, AppState, HandleAction, MotionRange, RowRulesWidget,
@@ -14,7 +14,7 @@ impl HandleAction for &RowRulesWidget {
         &self,
         input: ActionInput,
         state: &mut AppState,
-    ) -> Result<(ActionOutcome, MotionRange)> {
+    ) -> Result<(ActionOutcome, Option<MotionRange>)> {
         let rule_state = &mut state.rules_left;
 
         let action = input.action;
@@ -28,9 +28,8 @@ impl HandleAction for &RowRulesWidget {
 
         let next_back_idx = |col: u16, row: u16, next_row: u16| -> u16 {
             let back = get_max_col(row).saturating_sub(col);
-            let next_back = get_max_col(next_row).saturating_sub(back);
 
-            next_back
+            get_max_col(next_row).saturating_sub(back)
         };
 
         let pos: Position = app_to_puzzle(rule_state.cursor);
@@ -40,34 +39,77 @@ impl HandleAction for &RowRulesWidget {
         let max_row = state.puzzle.puzzle.rows() - 1;
         let max_col = get_max_col(row);
 
-        let end = match action {
-            Action::MoveLeft => Position {
-                col: col.saturating_sub(count),
-                ..pos
-            },
-            Action::MoveRight => Position {
-                col: (col + count).min(max_col),
-                ..pos
-            },
-            Action::MoveUp => {
+        let (end, produce_motion) = match action {
+            Action::MoveLeft
+            | Action::ScrollLeft
+            | Action::JumpStartBackwards
+            | Action::JumpEndBackwards => (
+                Position {
+                    col: col.saturating_sub(count),
+                    ..pos
+                },
+                true,
+            ),
+            Action::MoveRight
+            | Action::ScrollRight
+            | Action::JumpStartForwards
+            | Action::JumpEndForwards => (
+                Position {
+                    col: (col + count).min(max_col),
+                    ..pos
+                },
+                true,
+            ),
+            Action::MoveUp | Action::ScrollUp => {
                 let next_row = row.saturating_sub(count);
                 let next_col = next_back_idx(col, row, next_row);
 
-                Position {
-                    row: next_row,
-                    col: next_col,
-                }
+                (
+                    Position {
+                        row: next_row,
+                        col: next_col,
+                    },
+                    false,
+                )
             }
-            Action::MoveDown => {
+            Action::MoveDown | Action::ScrollDown => {
                 let next_row = (row + count).min(max_row);
                 let next_col = next_back_idx(col, row, next_row);
 
-                Position {
-                    row: next_row,
-                    col: next_col,
-                }
+                (
+                    Position {
+                        row: next_row,
+                        col: next_col,
+                    },
+                    false,
+                )
             }
-            _ => pos,
+
+            // Line jumps
+            Action::JumpRowStart => (Position { col: 0, ..pos }, true),
+            Action::JumpRowEnd => (
+                Position {
+                    col: max_col,
+                    ..pos
+                },
+                true,
+            ),
+            Action::JumpColStart => (
+                Position {
+                    row: 0,
+                    col: next_back_idx(col, row, 0),
+                },
+                false,
+            ),
+            Action::JumpColEnd => (
+                Position {
+                    row: max_row,
+                    col: next_back_idx(col, row, max_row),
+                },
+                false,
+            ),
+
+            _ => (pos, false),
         };
 
         tracing::info!("{pos:?} -> {end:?}");
@@ -75,6 +117,12 @@ impl HandleAction for &RowRulesWidget {
         let cursor = puzzle_to_app(end);
         rule_state.cursor = cursor;
 
-        Ok((ActionOutcome::Consumed, MotionRange::Single(cursor)))
+        state.puzzle.cursor.y = cursor.y;
+        state.puzzle.keep_cursor_visible(state.puzzle.cursor);
+
+        Ok((
+            ActionOutcome::Consumed,
+            produce_motion.then_some(MotionRange::Single(cursor)),
+        ))
     }
 }
