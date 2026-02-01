@@ -100,6 +100,15 @@ impl Rule {
         self.prefix_lens[end]
     }
 
+    pub fn min_run(&self, pos: u16) -> u16 {
+        let run_pos = match self.prefix_lens.binary_search(&pos) {
+            Ok(pos) => pos,
+            Err(pos) => pos,
+        };
+
+        run_pos.clamp(0, self.runs.len() - 1) as u16
+    }
+
     pub fn is_empty(&self) -> bool {
         self.runs.is_empty()
     }

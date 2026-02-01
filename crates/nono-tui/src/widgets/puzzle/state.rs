@@ -25,22 +25,25 @@ pub struct PuzzleState {
 
     // Solving properties
     pub fill: Fill,
+
     pub motion_axis: Axis,
 }
 
 impl PuzzleState {
     pub fn new(puzzle: Puzzle, style: PuzzleStyle, fill: Fill) -> Self {
+        let axis = Axis::default();
+
         Self {
             puzzle,
             style,
             fill,
 
-            selection: Selection::empty(),
+            selection: Selection::empty(axis),
             cursor: AppPosition::default(),
             area: Rect::default(),
             viewport: Viewport::default(),
             scroll: Position::default(),
-            motion_axis: Axis::default(),
+            motion_axis: axis,
         }
     }
     pub fn bounds(&self) -> Rect {
@@ -108,9 +111,9 @@ impl PuzzleState {
         y += row * cell_height;
 
         // Add grid dividors if set
-        if let Some(grid_size) = self.style.grid_size {
-            x += col / grid_size;
-            y += row / grid_size;
+        if let Some(size) = self.style.grid_size {
+            x += col / size;
+            y += row / size;
         }
 
         Some(AppPosition::new(x, y))
@@ -185,13 +188,17 @@ impl PuzzleState {
         let width = cols * self.style.cell_width + col_div_count;
         let height = rows * self.style.cell_height + row_div_count;
 
-        Size::new(width, height)
+        // Add on 2 for the borders around
+        Size::new(width + 2, height + 2)
     }
 
-    pub fn keep_cursor_visible(&mut self) {
-        let (col, row) = self.cursor.into();
+    pub fn keep_cursor_visible(&mut self, cursor: AppPosition) {
+        let (col, row) = cursor.into();
         let vp = &self.viewport;
         let (vis_cols, vis_rows) = (vp.visible_cols(), vp.visible_rows());
+
+        tracing::info!("Viewport {vp:?} has {vis_rows} visable rows");
+        tracing::info!("Viewport {vp:?} has {vis_cols} visable columns");
 
         let scroll = &mut self.scroll;
 

@@ -88,16 +88,28 @@ impl FooterWidget {
 
         // Show the current fill
         let fill = state.puzzle.fill;
-        let symbol = fill.symbol();
+        let fill_symbol = fill.symbol();
         let color = state
             .puzzle
             .style
             .fill_color(fill)
             .expect("Current fill {fill:?} should have a defined color");
 
-        Span::styled(symbol.to_string().repeat(3), Style::default().fg(color))
-            .into_left_aligned_line()
-            .render(area, buf);
+        let axis_symbol = match state.puzzle.motion_axis {
+            Axis::Row => "↔",
+            Axis::Col => "↕",
+        };
+
+        Line::from(vec![
+            Span::styled(
+                fill_symbol.to_string().repeat(3),
+                Style::default().fg(color),
+            ),
+            Span::raw(" "),
+            Span::styled(axis_symbol.to_string(), Style::default().fg(Color::White)),
+        ])
+        .alignment(Alignment::Left)
+        .render(area, buf);
     }
 
     fn render_progress(&self, area: Rect, buf: &mut Buffer, state: &AppState) {
@@ -121,20 +133,23 @@ impl FooterWidget {
     }
 
     fn render_stats(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        // Show the current position in the puzzle and the main axis
+        let style = Style::default().fg(Color::White);
         let cursor = state.puzzle.cursor;
-        let symbol = match state.puzzle.motion_axis {
-            Axis::Row => "↔",
-            Axis::Col => "↕",
-        };
 
-        Span::styled(
-            format!("{},{} {symbol}", cursor.y + 1, cursor.x + 1),
-            Style::default().fg(Color::White),
-        )
-        .into_left_aligned_line()
-        .render(area, buf);
+        // Left
+        Span::styled(format!("{},{}", cursor.y + 1, cursor.x + 1), style)
+            .into_left_aligned_line()
+            .render(area, buf);
 
+        // Middle
+        let row_rule = &state.rules_left.rules[cursor.y as usize];
+        let col_rule = &state.rules_top.rules[cursor.x as usize];
+
+        Span::styled(format!("{}R, {}C", row_rule.len(), col_rule.len()), style)
+            .into_centered_line()
+            .render(area, buf);
+
+        // Right
         // Show the dimensions of the puzzle
         Span::styled(
             format!(
@@ -142,7 +157,7 @@ impl FooterWidget {
                 state.puzzle.puzzle.rows(),
                 state.puzzle.puzzle.cols()
             ),
-            Style::default().fg(Color::White),
+            style,
         )
         .into_right_aligned_line()
         .render(area, buf);

@@ -13,10 +13,10 @@ pub struct Viewport {
 
 impl Viewport {
     pub fn visible_cols(&self) -> u16 {
-        self.col_end - self.col_start + 1
+        self.col_end - self.col_start
     }
 
     pub fn visible_rows(&self) -> u16 {
-        self.row_end - self.row_start + 1
+        self.row_end - self.row_start
     }
 }

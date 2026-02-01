@@ -1,7 +1,7 @@
-use nono::Rule;
-use ratatui::layout::{Direction, Position as AppPosition, Rect};
+use nono::{Axis, Position, Rule};
+use ratatui::layout::{Position as AppPosition, Rect};
 
-use crate::{RuleDisplay, Selection};
+use crate::{RuleDisplay, Selection, puzzle_to_app};
 
 #[derive(Debug, Default)]
 pub struct RuleState {
@@ -9,23 +9,23 @@ pub struct RuleState {
 
     pub display: RuleDisplay,
 
-    pub direction: Direction,
-
     pub cursor: AppPosition,
 
     pub selection: Selection,
+
+    pub axis: Axis,
 
     pub area: Rect,
 }
 
 impl RuleState {
-    pub fn new(rules: Vec<Rule>, direction: Direction) -> Self {
+    pub fn new(rules: Vec<Rule>, axis: Axis) -> Self {
         Self {
             rules,
-            direction,
+            axis,
             display: RuleDisplay::default(),
             cursor: AppPosition::default(),
-            selection: Selection::empty(),
+            selection: Selection::empty(axis),
             area: Rect::default(),
         }
     }
@@ -61,25 +61,24 @@ impl RuleState {
         rows.iter().max().copied().unwrap_or_default()
     }
 
-    // pub fn size(&self) -> Size {
-    //     });
-    //     let heights = self.rules.iter().map(|rule: &Rule| rule.runs.len() as u16);
-    //
-    //     let (width, height) = match self.display {
-    //         RuleDisplay::Auto => {
-    //             let widths: Vec<_> = widths.collect();
-    //             let heights: Vec<_> = heights.collect();
-    //
-    //             (median(widths), median(heights))
-    //         }
-    //         RuleDisplay::TryMax => (
-    //             widths.max().unwrap_or_default(),
-    //             heights.max().unwrap_or_default(),
-    //         ),
-    //     };
-    //
-    //     Size::new(width, height)
-    // }
+    pub fn follow_puzzle_cursor(&mut self, cursor: Position) {
+        let cursor = match self.axis {
+            Axis::Row => {
+                let row = cursor.row;
+                let col = self.rules[row as usize].min_run(cursor.col);
+
+                Position { row, col }
+            }
+            Axis::Col => {
+                let col = cursor.col;
+                let row = self.rules[col as usize].min_run(cursor.row);
+
+                Position { row, col }
+            }
+        };
+
+        self.cursor = puzzle_to_app(cursor);
+    }
 }
 
 fn median(nums: Vec<u16>) -> u16 {

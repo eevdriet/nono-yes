@@ -27,8 +27,8 @@ impl StatefulWidgetRef for &PuzzleWidget {
     type State = AppState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        self.draw_borders(area, buf, state);
         self.draw_puzzle(area, buf, state);
+        self.draw_borders(area, buf, state);
     }
 }
 
@@ -75,7 +75,7 @@ impl PuzzleWidget {
                 // Draw cell
                 let repeat = state.puzzle.style.cell_width as usize;
                 let symbol = match pos == state.puzzle.cursor {
-                    true => 'A',
+                    true => 'E',
                     false => fill.symbol(),
                 }
                 .to_string()

@@ -17,6 +17,22 @@ pub enum LineValidation {
     Invalid,
 }
 
+impl LineValidation {
+    pub fn symbol(&self) -> char {
+        match self {
+            LineValidation::Invalid
+            | LineValidation::LengthMismatch { .. }
+            | LineValidation::InvalidFill(..) => '⛌',
+            LineValidation::Solved => '✓',
+            _ => ' ',
+        }
+    }
+
+    pub fn is_valid(&self) -> bool {
+        matches!(self, LineValidation::Valid | LineValidation::Solved)
+    }
+}
+
 impl Puzzle {
     pub fn validate(&self, rule: &Rule, line: Line) -> LineValidation {
         // Make sure the rule length is valid

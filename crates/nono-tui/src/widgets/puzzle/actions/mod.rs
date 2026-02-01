@@ -199,13 +199,19 @@ impl HandleAction for &PuzzleWidget {
 
             _ => pos,
         };
-        let end = puzzle_to_app(end);
 
-        tracing::debug!("End position: {end:?}");
-        state.puzzle.cursor = end;
-        state.puzzle.keep_cursor_visible();
+        tracing::info!("Puzzle end: {end:?}");
+        let cursor = puzzle_to_app(end);
+        tracing::info!("App end: {cursor:?}");
 
-        Ok((ActionOutcome::Consumed, MotionRange::Single(end)))
+        state.rules_left.follow_puzzle_cursor(end);
+        state.rules_top.follow_puzzle_cursor(end);
+
+        tracing::debug!("End position: {cursor:?}");
+        state.puzzle.cursor = cursor;
+        state.puzzle.keep_cursor_visible(cursor);
+
+        Ok((ActionOutcome::Consumed, MotionRange::Single(cursor)))
     }
 
     fn handle_command(&self, input: ActionInput, state: &mut AppState) -> ActionResult {
@@ -234,7 +240,10 @@ impl HandleAction for &PuzzleWidget {
                 state.puzzle.fill = fill;
             }
 
-            Action::SwitchAxis => state.puzzle.motion_axis.switch(),
+            Action::SwitchAxis => {
+                state.puzzle.motion_axis.switch();
+                state.puzzle.selection.axis.switch();
+            }
 
             // TODO: Implement properly by changing scroll too
             Action::TopViewport => {

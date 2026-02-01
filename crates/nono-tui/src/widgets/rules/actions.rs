@@ -1,12 +1,8 @@
-use crate::{
-    Action, ActionInput, ActionOutcome, ActionResult, AppState, ColRulesWidget, HandleAction,
-    RowRulesWidget,
-};
+use crate::{Action, ActionInput, ActionOutcome, ActionResult, AppState};
 
-fn handle_command(input: ActionInput, _state: &mut AppState) -> ActionResult {
+pub fn handle_command(input: ActionInput, _state: &mut AppState) -> ActionResult {
     let action = input.action;
 
-    // Lose focus commands
     if matches!(
         action,
         Action::FocusDown | Action::FocusUp | Action::FocusLeft | Action::FocusRight
@@ -14,17 +10,6 @@ fn handle_command(input: ActionInput, _state: &mut AppState) -> ActionResult {
         tracing::debug!("LOST RULES FOCUS");
         return Ok(ActionOutcome::LoseFocus);
     }
+
     Ok(ActionOutcome::Consumed)
-}
-
-impl HandleAction for &RowRulesWidget {
-    fn handle_command(&self, input: ActionInput, state: &mut AppState) -> ActionResult {
-        handle_command(input, state)
-    }
-}
-
-impl HandleAction for &ColRulesWidget {
-    fn handle_command(&self, input: ActionInput, state: &mut AppState) -> ActionResult {
-        handle_command(input, state)
-    }
 }
