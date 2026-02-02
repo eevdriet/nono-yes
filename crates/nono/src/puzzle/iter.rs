@@ -1,4 +1,4 @@
-use crate::{Fill, Line, Position, Puzzle, Run, Runs};
+use crate::{Fill, Line, Position, Puzzle, Runs};
 
 impl Puzzle {
     pub fn iter_line<'a>(&'a self, line: Line) -> LineIter<'a> {
@@ -33,12 +33,13 @@ impl Puzzle {
         self.fills.iter()
     }
 
-    pub fn iter_runs(&self, line: Line) -> impl Iterator<Item = Run> {
+    pub fn iter_runs<'a>(&'a self, line: Line) -> Runs<LineIter<'a>> {
         let fills = self.iter_line(line);
         Runs::new(fills, true)
     }
 }
 
+#[derive(Debug, Clone)]
 pub enum LineIter<'a> {
     Row(std::slice::Iter<'a, Fill>),
     Col(ColIter<'a>),
@@ -77,6 +78,7 @@ impl<'a> ExactSizeIterator for LineIter<'a> {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ColIter<'a> {
     puzzle: &'a Puzzle,
     col: u16,

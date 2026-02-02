@@ -1,5 +1,6 @@
 use crate::{Fill, Run};
 
+#[derive(Debug, Clone)]
 pub struct Runs<I>
 where
     I: Iterator,

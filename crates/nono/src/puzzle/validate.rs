@@ -1,5 +1,6 @@
 use crate::{Fill, Line, LinePosition, Puzzle, Rule};
 
+#[derive(Debug)]
 pub enum LineValidation {
     /// All cells in the line are validated by the rule
     Valid,
@@ -47,58 +48,68 @@ impl Puzzle {
             return LineValidation::LengthMismatch { rule_len, line_len };
         }
 
-        LineValidation::Valid
+        // Then validate whether the line can satisfy the rule
+        if !self.validate_dp(rule, line) {
+            return LineValidation::Invalid;
+        }
 
-        // if self.validate_dp(rule, line) {
-        //     LineValidation::Valid
-        // } else {
-        //     LineValidation::Invalid
-        // }
+        // If so, check if it solve the rule
+        self.validate_iter(rule, line)
     }
 
     fn validate_iter(&self, rule: &Rule, line: Line) -> LineValidation {
-        let mut rule_iter = rule.runs().iter();
-        let mut current_rule = rule_iter.next();
+        let rule_iter = rule.runs().iter();
+        let line_iter = self.iter_runs(line);
 
-        for (idx, run) in self.iter_runs(line).enumerate() {
-            let Some(rule_run) = current_rule else {
-                tracing::info!("Extra run including in puzzle but not in rule");
-                return LineValidation::Invalid;
-            };
-
-            // Fill mismatch
-            if run.fill != rule_run.fill {
-                tracing::info!(
-                    "Fills differ for the {}th run: {:?} (puzzle) v.s. {:?} (rule)",
-                    idx + 1,
-                    run.fill,
-                    rule_run.fill
-                );
-                return LineValidation::Invalid;
-            }
-
-            // Run too long
-            if run.count > rule_run.count {
-                tracing::info!(
-                    "Counts differ for the {}th run: {:?} (puzzle) v.s. {:?}",
-                    idx + 1,
-                    run.count,
-                    rule_run.count
-                );
-                return LineValidation::Invalid;
-            }
-
-            // If we exactly matched this rule run, advance
-            if run.count == rule_run.count {
-                current_rule = rule_iter.next();
-            } else {
-                // Partial run → must still be extending same rule run
-                // BUT we must ensure puzzle didn't insert blanks splitting it
-                // That requires checking adjacency in the grid — not here
-            }
+        if rule_iter.clone().count() != line_iter.clone().count() {
+            return LineValidation::Valid;
         }
 
-        LineValidation::Valid
+        if rule_iter.zip(line_iter).all(|(run1, run2)| *run1 == run2) {
+            LineValidation::Solved
+        } else {
+            LineValidation::Valid
+        }
+
+        // for (idx, run) in self.iter_runs(line).enumerate() {
+        //     let Some(rule_run) = current_rule else {
+        //         tracing::info!("Extra run including in puzzle but not in rule");
+        //         return LineValidation::Invalid;
+        //     };
+        //
+        //     // Fill mismatch
+        //     if run.fill != rule_run.fill {
+        //         tracing::info!(
+        //             "Fills differ for the {}th run: {:?} (puzzle) v.s. {:?} (rule)",
+        //             idx + 1,
+        //             run.fill,
+        //             rule_run.fill
+        //         );
+        //         return LineValidation::Invalid;
+        //     }
+        //
+        //     // Run too long
+        //     if run.count > rule_run.count {
+        //         tracing::info!(
+        //             "Counts differ for the {}th run: {:?} (puzzle) v.s. {:?}",
+        //             idx + 1,
+        //             run.count,
+        //             rule_run.count
+        //         );
+        //         return LineValidation::Invalid;
+        //     }
+        //
+        //     // If we exactly matched this rule run, advance
+        //     if run.count == rule_run.count {
+        //         current_rule = rule_iter.next();
+        //     } else {
+        //         // Partial run → must still be extending same rule run
+        //         // BUT we must ensure puzzle didn't insert blanks splitting it
+        //         // That requires checking adjacency in the grid — not here
+        //     }
+        // }
+        //
+        // LineValidation::Valid
     }
 
     fn validate_dp(&self, rule: &Rule, line: Line) -> bool {
@@ -146,16 +157,24 @@ impl Puzzle {
 
                 // Verify that all spaces in the run are empty or filled with the correct color
                 // If not, continue trying the next run from this position
+                let mut ok = true;
+
                 for idx in 0..len {
                     match self[pos + idx] {
                         Fill::Cross => {
-                            continue;
+                            ok = false;
+                            break;
                         }
                         col @ Fill::Color(_) if col != run.fill => {
-                            continue;
+                            ok = false;
+                            break;
                         }
                         _ => {}
                     }
+                }
+
+                if !ok {
+                    continue;
                 }
 
                 // Make sure to leave a space between runs with the same (colored) fill
