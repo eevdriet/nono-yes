@@ -93,7 +93,8 @@ pub enum Action {
     EnterInsert,
     ExitInsert,
     EnterCellsVisual,
-    EnterLinesVisual,
+    EnterRowsVisual,
+    EnterColsVisual,
     ExitVisual,
 }
 
@@ -113,7 +114,7 @@ impl Action {
 
             // Modes
             EnterNormal | ExitNormal | EnterInsert | ExitInsert | EnterCellsVisual
-            | EnterLinesVisual | ExitVisual => ActionKind::Mode,
+            | EnterRowsVisual | EnterColsVisual | ExitVisual => ActionKind::Mode,
 
             // Motions
             Click | Drag | FindFillBackwards | FindFillForwards | FindTilFillBackwards

@@ -8,7 +8,8 @@ pub enum SelectionKind {
     #[default]
     Cells,
 
-    Lines,
+    Rows,
+    Cols,
 }
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -67,18 +68,17 @@ impl Selection {
                 MotionRange::Block(block)
             }
 
-            SelectionKind::Lines => match self.axis {
-                Axis::Col => {
-                    let y1 = start.y.min(end.y);
-                    let y2 = start.y.max(end.y);
-                    MotionRange::Rows { start: y1, end: y2 }
-                }
-                Axis::Row => {
-                    let x1 = start.x.min(end.x);
-                    let x2 = start.x.max(end.x);
-                    MotionRange::Cols { start: x1, end: x2 }
-                }
-            },
+            SelectionKind::Rows => {
+                let y1 = start.y.min(end.y);
+                let y2 = start.y.max(end.y);
+                MotionRange::Rows { start: y1, end: y2 }
+            }
+
+            SelectionKind::Cols => {
+                let x1 = start.x.min(end.x);
+                let x2 = start.x.max(end.x);
+                MotionRange::Cols { start: x1, end: x2 }
+            }
         }
     }
 }
