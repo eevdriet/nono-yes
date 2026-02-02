@@ -98,9 +98,10 @@ impl Rule {
     }
 
     pub fn len(&self) -> u16 {
-        let end = self.prefix_lens.len() - 1;
-
-        self.prefix_lens[end]
+        match self.prefix_lens.len().checked_sub(1) {
+            None => 0,
+            Some(end) => self.prefix_lens[end],
+        }
     }
 
     pub fn min_run(&self, pos: u16) -> u16 {
@@ -109,7 +110,7 @@ impl Rule {
             Err(pos) => pos,
         };
 
-        run_pos.clamp(0, self.runs.len() - 1) as u16
+        run_pos.clamp(0, self.runs.len().saturating_sub(1)) as u16
     }
 
     pub fn is_empty(&self) -> bool {

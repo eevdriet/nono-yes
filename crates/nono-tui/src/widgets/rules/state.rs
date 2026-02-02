@@ -49,7 +49,7 @@ impl RuleState {
             .map(|rule: &Rule| {
                 let runs = rule.runs();
 
-                runs.len() as u16 - 1
+                runs.len().saturating_sub(1) as u16
                     + runs
                         .iter()
                         .map(|run| run.count.to_string().len() as u16)
