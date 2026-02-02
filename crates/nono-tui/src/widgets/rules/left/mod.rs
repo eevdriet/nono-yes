@@ -2,7 +2,7 @@ mod actions;
 
 use nono::{Fill, Line, Rule, Run};
 use ratatui::{
-    layout::{Alignment, Margin},
+    layout::Alignment,
     prelude::{Buffer, Rect},
     style::{Color, Style},
     text::{Line as TextLine, Span},
@@ -28,7 +28,10 @@ impl StatefulWidgetRef for &RowRulesWidget {
 
         self.draw(area, buf, state);
 
-        let block = area.inner(Margin::new(0, 0));
+        let block = Rect {
+            width: area.width - 1,
+            ..area
+        };
 
         Block::new()
             .borders(Borders::TOP)

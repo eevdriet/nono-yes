@@ -68,7 +68,7 @@ impl ComputeLayout for App {
             .constraints(vec![
                 Constraint::Length(center_offset),
                 Constraint::Length(width),
-                Constraint::Length(1),
+                Constraint::Length(0),
                 Constraint::Length(overflow_top),
             ])
             .areas(root);

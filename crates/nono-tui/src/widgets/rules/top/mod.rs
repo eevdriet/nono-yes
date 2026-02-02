@@ -93,11 +93,7 @@ impl ColRulesWidget {
 
             if cursor.x == col && !matches!(state.focus, Focus::RulesLeft) {
                 let o = rule_state.overflow_area;
-                let run_area = Rect {
-                    y,
-                    width: 2 * cell_width,
-                    ..o
-                };
+                let run_area = Rect { y, ..o };
 
                 self.draw_runs(&info, true, run_area, buf, state);
             }
@@ -124,7 +120,7 @@ impl ColRulesWidget {
         buf: &mut Buffer,
         state: &AppState,
     ) {
-        let RuleInfo { rule, line, .. } = info;
+        let RuleInfo { rule, .. } = info;
 
         let runs = match rule.runs().len() {
             0 => &vec![Run {
