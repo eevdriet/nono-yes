@@ -12,12 +12,16 @@ where
     finished: bool,
 }
 
-impl<'a, I> Runs<I>
+impl<I> Runs<I>
 where
-    I: Iterator<Item = &'a Fill>,
+    I: Iterator,
+    I::Item: Into<Fill>,
 {
     pub fn new(mut iter: I, skip_non_colored: bool) -> Self {
-        let curr = iter.next().map(|&fill| Run { fill, count: 1 });
+        let curr = iter.next().map(|fill| Run {
+            fill: fill.into(),
+            count: 1,
+        });
 
         Self {
             iter,
@@ -28,9 +32,10 @@ where
     }
 }
 
-impl<'a, I> Iterator for Runs<I>
+impl<I> Iterator for Runs<I>
 where
-    I: Iterator<Item = &'a Fill>,
+    I: Iterator,
+    I::Item: Into<Fill>,
 {
     type Item = Run;
 
@@ -43,7 +48,9 @@ where
         let should_yield =
             |curr: Run| !self.skip_non_colored || matches!(curr.fill, Fill::Color(_));
 
-        while let Some(&fill) = self.iter.next() {
+        while let Some(fill) = self.iter.next() {
+            let fill: Fill = fill.into();
+
             // Continue the current run
             if fill == curr.fill {
                 curr.count += 1;
@@ -85,7 +92,7 @@ mod tests {
     #[case(vec![B, B, X, B], vec![(B, 2), (X, 1), (B, 1)])]
     #[case(vec![C, X, X, C], vec![(C, 1), (X, 2), (C, 1)])]
     fn all_runs(#[case] fills: Vec<Fill>, #[case] runs: Vec<(Fill, u16)>) {
-        let fill_runs: Vec<_> = Runs::new(fills.iter(), false).collect();
+        let fill_runs: Vec<_> = Runs::new(fills.into_iter(), false).collect();
         let runs: Vec<Run> = runs.iter().map(|&val| val.into()).collect();
 
         assert_eq!(fill_runs, runs);
@@ -98,7 +105,7 @@ mod tests {
     #[case(vec![C, X, C], vec![(C, 1), (C, 1)])]
     #[case(vec![C, C, C2, C, C2, C2, C, C], vec![(C, 2), (C2, 1), (C, 1), (C2, 2), (C, 2)])]
     fn colored_runs(#[case] fills: Vec<Fill>, #[case] runs: Vec<(Fill, u16)>) {
-        let fill_runs: Vec<_> = Runs::new(fills.iter(), true).collect();
+        let fill_runs: Vec<_> = Runs::new(fills.into_iter(), true).collect();
         let runs: Vec<Run> = runs.iter().map(|&val| val.into()).collect();
 
         assert_eq!(fill_runs, runs);

@@ -65,3 +65,9 @@ impl From<Fill> for Option<u16> {
         }
     }
 }
+
+impl From<&Fill> for Fill {
+    fn from(fill: &Fill) -> Self {
+        *fill
+    }
+}

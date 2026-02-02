@@ -76,9 +76,12 @@ impl Rule {
         }
     }
 
-    pub fn from_fills<'a>(fills: impl Iterator<Item = &'a Fill>) -> Self {
+    pub fn from_fills<I>(fills: I) -> Self
+    where
+        I: IntoIterator<Item = Fill>,
+    {
         let mut line_len = 0;
-        let iter = fills.inspect(|_| line_len += 1);
+        let iter = fills.into_iter().inspect(|_| line_len += 1);
 
         let runs: Vec<_> = Runs::new(iter, true).collect();
 
@@ -154,7 +157,7 @@ mod tests {
     #[case::single_blank(vec![B], vec![])]
     #[case::multiple(vec![B, X, C1], vec![(C1, 1)])]
     fn test_from_fills_runs(#[case] fills: Vec<Fill>, #[case] expected: Vec<(Fill, u16)>) {
-        let rule = Rule::from_fills(fills.iter());
+        let rule = Rule::from_fills(fills.into_iter());
         let runs = fill_counts_to_runs(expected);
 
         assert_eq!(rule.runs, runs);
@@ -165,7 +168,7 @@ mod tests {
     #[case::single_blank(vec![B], 1)]
     #[case::multiple(vec![B, X, C1], 3)]
     fn test_from_fills_line_len(#[case] fills: Vec<Fill>, #[case] expected: u16) {
-        let rule = Rule::from_fills(fills.iter());
+        let rule = Rule::from_fills(fills.into_iter());
 
         assert_eq!(rule.line_len(), expected);
     }
@@ -175,7 +178,7 @@ mod tests {
     #[case::no_space(vec![C1, C2], 2)]
     #[case::mono_color(vec![C1, C1, C1, B, C1, C1, C1, B], 7)]
     fn test_from_fills_len(#[case] fills: Vec<Fill>, #[case] expected: u16) {
-        let rule = Rule::from_fills(fills.iter());
+        let rule = Rule::from_fills(fills.into_iter());
 
         assert_eq!(rule.len(), expected);
     }

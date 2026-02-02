@@ -11,7 +11,7 @@ pub enum Error {
     Puzzle(PuzzleError),
 
     #[error("I/O error: {0}")]
-    IO(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;

@@ -14,8 +14,21 @@ impl Rules {
     }
 
     pub fn from_puzzle(puzzle: &Puzzle) -> Self {
-        let rows = puzzle.iter_rows().map(Rule::from_fills).collect::<Vec<_>>();
-        let cols = puzzle.iter_cols().map(Rule::from_fills).collect::<Vec<_>>();
+        let rows = puzzle
+            .iter_rows()
+            .map(|row| {
+                let fills = row.copied();
+                Rule::from_fills(fills)
+            })
+            .collect::<Vec<_>>();
+
+        let cols = puzzle
+            .iter_cols()
+            .map(|col| {
+                let fills = col.copied();
+                Rule::from_fills(fills)
+            })
+            .collect::<Vec<_>>();
 
         Self { rows, cols }
     }

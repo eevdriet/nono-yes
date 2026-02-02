@@ -1,16 +1,12 @@
 mod error;
 mod find;
 mod iter;
-mod line;
-mod pos;
 mod validate;
 
 use bitvec::bitvec;
 pub use error::*;
 pub use find::*;
 pub use iter::*;
-pub use line::*;
-pub use pos::*;
 pub use validate::*;
 
 use std::{
@@ -18,7 +14,7 @@ use std::{
     ops::{Index, IndexMut},
 };
 
-use crate::{Error, Fill, LineMask, Result};
+use crate::{Error, Fill, Line, LineMask, LinePosition, Position, Result};
 
 #[derive(Debug, Default)]
 pub struct Puzzle {
