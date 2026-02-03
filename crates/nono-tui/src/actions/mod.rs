@@ -130,7 +130,10 @@ impl Action {
     pub fn is_motionless_op(&self) -> bool {
         matches!(
             (self.kind(), self),
-            (ActionKind::Operator, Action::Fill | Action::DeleteSingle)
+            (
+                ActionKind::Operator,
+                Action::Fill | Action::Cross | Action::DeleteSingle
+            )
         )
     }
 

@@ -35,8 +35,12 @@ impl EventSearchResult {
             _ => None,
         }
     }
-    pub fn is_found(&self) -> bool {
-        self.action().is_some()
+
+    pub fn is_partial(&self) -> bool {
+        matches!(
+            self,
+            EventSearchResult::Prefix | EventSearchResult::RequireOperand(_)
+        )
     }
 }
 
@@ -113,4 +117,3 @@ impl EventTrie {
         }
     }
 }
-

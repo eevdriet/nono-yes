@@ -145,6 +145,11 @@ impl EventEngine {
             let events = &self.buffer[..idx];
             let search = self.actions.search(events);
 
+            // Do not reset on partial results that require more input
+            if search.is_partial() {
+                break;
+            }
+
             if let Some(action) = search.action() {
                 let count = self.repeat.count();
                 let events = events.to_vec();
@@ -194,4 +199,3 @@ impl RepeatState {
         self.digits.clear();
     }
 }
-

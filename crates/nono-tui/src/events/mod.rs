@@ -4,6 +4,7 @@ mod trie;
 use std::{hash::Hash, ops::Deref};
 
 pub use engine::*;
+use nono::Fill;
 pub use trie::*;
 
 use crossterm::event::{
@@ -102,5 +103,29 @@ impl Hash for AppEvent {
                 event.hash(state);
             }
         }
+    }
+}
+
+impl TryFrom<AppEvent> for Fill {
+    type Error = ();
+
+    fn try_from(event: AppEvent) -> Result<Self, Self::Error> {
+        let Event::Key(key) = event.0 else {
+            return Err(());
+        };
+
+        let KeyCode::Char(ch) = key.code else {
+            return Err(());
+        };
+
+        let fill = match ch {
+            '.' => Fill::Blank,
+            'x' | '0' => Fill::Cross,
+            '1'..'9' => Fill::Color(ch as u16 - b'0' as u16),
+            'a'..'x' | 'x'..='z' => Fill::Color(ch as u16 - b'a' as u16 + 9),
+            _ => return Err(()),
+        };
+
+        Ok(fill)
     }
 }

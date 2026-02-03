@@ -63,7 +63,7 @@ impl ActionEngine {
         range: Option<MotionRange>,
         state: &mut AppState,
     ) -> ActionResult {
-        if !input.action.is_motionless_op() {
+        if !input.action.is_motionless_op() && range.is_none() {
             self.pending_operator = Some(input.action);
             return Ok(ActionOutcome::Consumed);
         }
@@ -91,11 +91,6 @@ impl ActionEngine {
             ActionKind::Operator => self.handle_operator(handler, input, None, state),
 
             ActionKind::Motion => {
-                // if action.requires_operand() {
-                //     self.pending_motion = Some(action);
-                //     return Ok(ActionOutcome::Consumed);
-                // }
-
                 if let Some(op) = self.pending_operator.take() {
                     let next = ActionInput {
                         action: op,
