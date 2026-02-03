@@ -1,6 +1,6 @@
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
 
-use crate::{App, ComputeLayout};
+use crate::{App, ComputeLayout, Viewport};
 
 const FOOTER_HEIGHT: u16 = 4;
 
@@ -45,8 +45,6 @@ impl ComputeLayout for App {
         let max_rules_width = (rules_width + 3).max(15).min(root.width / 4);
         let max_rules_height = (rules_height + 3).max(15).min(4 * root.height / 10);
 
-        tracing::debug!("Ruleshhh: {max_rules_height}");
-
         let cell_width = self.state.puzzle.style.cell_width;
         let cell_height = self.state.puzzle.style.cell_height;
 
@@ -63,15 +61,17 @@ impl ComputeLayout for App {
         let overflow_count = (rules_height as f64 / overflow_height as f64).ceil() as u16;
         let overflow_top = overflow_count * cell_width;
 
-        let [_, outer, _, rules_top_overflow_area] = Layout::default()
+        let [_, outer, _, mut rules_top_overflow_area] = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![
                 Constraint::Length(center_offset),
                 Constraint::Length(width),
-                Constraint::Length(0),
+                Constraint::Length(1),
                 Constraint::Length(overflow_top),
             ])
             .areas(root);
+
+        rules_top_overflow_area.height = overflow_height;
 
         // Also Calculate the offset to vertically center the puzzle
         let center_height = root.height.saturating_sub(puzzle_size.height) / 2;
@@ -135,23 +135,27 @@ impl ComputeLayout for App {
             ])
             .areas(left);
 
-        tracing::debug!("Info                  : {info_area:?}");
-        tracing::debug!("Inner                 : {inner:?}");
-        tracing::debug!("Left                  : {left:?}");
-        tracing::debug!("Outer                 : {outer:?}");
-        tracing::debug!("Puzzle size           : {puzzle_size:?}");
-        tracing::debug!("Puzzle                : {puzzle_area:?}");
-        tracing::debug!("Right                 : {right:?}");
-        tracing::debug!("Root                  : {root:?}");
-        tracing::debug!("Rules height          : {max_rules_height}");
-        tracing::debug!("Rules left            : {rules_left_area:?}");
-        tracing::debug!("Rules left (overflow) : {rules_left_overflow_area:?}");
-        tracing::debug!("Rules top             : {rules_top_area:?}");
-        tracing::debug!("Rules top (overflow)  : {rules_top_overflow_area:?}");
-        tracing::debug!("Rules width           : {max_rules_width}");
+        tracing::trace!("Info                  : {info_area:?}");
+        tracing::trace!("Inner                 : {inner:?}");
+        tracing::trace!("Left                  : {left:?}");
+        tracing::trace!("Outer                 : {outer:?}");
+        tracing::trace!("Puzzle size           : {puzzle_size:?}");
+        tracing::trace!("Puzzle                : {puzzle_area:?}");
+        tracing::trace!("Right                 : {right:?}");
+        tracing::trace!("Root                  : {root:?}");
+        tracing::trace!("Rules height          : {max_rules_height}");
+        tracing::trace!("Rules left            : {rules_left_area:?}");
+        tracing::trace!("Rules left (overflow) : {rules_left_overflow_area:?}");
+        tracing::trace!("Rules top             : {rules_top_area:?}");
+        tracing::trace!("Rules top (overflow)  : {rules_top_overflow_area:?}");
+        tracing::trace!("Rules width           : {max_rules_width}");
 
         self.state.puzzle.area = puzzle_area;
-        self.state.puzzle.viewport = self.state.puzzle.create_viewport(puzzle_area);
+        self.state.puzzle.viewport = Viewport {
+            area: puzzle_area.inner(Margin::new(1, 1)),
+            ..Default::default()
+        };
+        self.state.puzzle.update_viewport();
 
         self.state.rules_top.area = rules_top_area;
         self.state.rules_top.overflow_area = rules_top_overflow_area;

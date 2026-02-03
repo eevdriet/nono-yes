@@ -2,13 +2,13 @@ mod actions;
 
 use nono::{Fill, Line, Rule, Run};
 use ratatui::{
-    layout::Alignment,
+    layout::{Alignment, Position},
     prelude::{Buffer, Rect},
     style::{Color, Style},
     widgets::{Block, Borders, Paragraph, StatefulWidgetRef, TitlePosition, Widget},
 };
 
-use crate::{AppState, Focus, run_style, status_info, widgets::rules::RuleInfo};
+use crate::{AppState, Focus, run_style, safe_draw_str, status_info, widgets::rules::RuleInfo};
 
 #[derive(Debug)]
 pub struct ColRulesWidget {
@@ -137,10 +137,8 @@ impl ColRulesWidget {
         let mut x = area.x;
         let mut y = area.y;
 
-        // tracing::info!("[{continue_to_right}] Drawing {len} runs in {area:?} ({line:?})");
-
         for r in 0..len {
-            if y >= area.bottom() {
+            if y + 1 >= area.bottom() {
                 if !continue_to_right {
                     // tracing::info!("\tReached bottom");
                     return;
@@ -148,27 +146,28 @@ impl ColRulesWidget {
 
                 // tracing::info!("\tContinue to right");
                 x += cell_width as u16;
-                y = area.y;
+                y = area.top();
             }
 
             if r + 1 < len && y + 2 >= area.bottom() {
                 if !continue_to_right {
                     // tracing::info!("\tNo more space ⋯⋯");
                     let text = format!("{:>cell_width$}", "⋯");
-                    buf.set_string(x, y, text, Style::default());
+
+                    safe_draw_str(buf, Position::new(x, y), text, Style::default());
                     return;
                 }
 
                 // tracing::info!("\tContinue to right");
                 x += cell_width as u16;
-                y = area.y;
+                y = area.top();
             }
 
             let run = runs[r as usize];
             let text = format!("{:>cell_width$}", run.count);
             let style = run_style(info, run.fill, r, state);
 
-            buf.set_string(x, y, text, style);
+            safe_draw_str(buf, Position::new(x, y), text, style);
             y += 1;
         }
     }

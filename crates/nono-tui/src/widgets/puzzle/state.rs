@@ -1,5 +1,5 @@
 use nono::{Axis, Fill, Position, Puzzle};
-use ratatui::layout::{Margin, Position as AppPosition, Rect, Size};
+use ratatui::layout::{Position as AppPosition, Rect, Size};
 
 use crate::{PuzzleStyle, Selection, Viewport};
 
@@ -60,8 +60,8 @@ impl PuzzleState {
         let mut x = screen_pos.x.checked_sub(area.x)?;
         let mut y = screen_pos.y.checked_sub(area.y)?;
 
-        tracing::debug!("pos: {screen_pos:?} + viewport: {:?}", area);
-        tracing::debug!("pos relative to viewport: {:?}", (x, y));
+        tracing::trace!("pos: {screen_pos:?} + viewport: {:?}", area);
+        tracing::trace!("pos relative to viewport: {:?}", (x, y));
 
         let cell_width = self.style.cell_width;
         let cell_height = self.style.cell_height;
@@ -82,8 +82,8 @@ impl PuzzleState {
         let mut col = x / cell_width;
         let mut row = y / cell_height;
 
-        tracing::debug!("col: {col:?} + row: {row:?}");
-        tracing::debug!("cols: {:?} + rows: {:?}", puzzle.cols(), puzzle.rows());
+        tracing::trace!("col: {col:?} + row: {row:?}");
+        tracing::trace!("cols: {:?} + rows: {:?}", puzzle.cols(), puzzle.rows());
 
         // Translate with the scroll position
         col += self.scroll.col;
@@ -119,13 +119,17 @@ impl PuzzleState {
         Some(AppPosition::new(x, y))
     }
 
-    fn visible_cells(&self, area: Rect) -> Size {
+    fn visible_cells(&self) -> Size {
         let puzzle = &self.puzzle;
+        let vp = &self.viewport;
 
-        let top_left = AppPosition::new(area.x, area.y);
-        let bottom_right = AppPosition::new(area.x + area.width - 1, area.y + area.height - 1);
+        let top_left = AppPosition::new(vp.area.x, vp.area.y);
+        let bottom_right = AppPosition::new(
+            vp.area.x + vp.area.width - 1,
+            vp.area.y + vp.area.height - 1,
+        );
 
-        let start = self.screen_to_puzzle(area, top_left).unwrap_or_else(|| {
+        let start = self.screen_to_puzzle(vp.area, top_left).unwrap_or_else(|| {
             panic!(
                 "Viewport top-left {top_left:?} should be in-bounds ({} rows, {} cols)",
                 puzzle.rows(),
@@ -134,7 +138,7 @@ impl PuzzleState {
         });
 
         let end = self
-            .screen_to_puzzle(area, bottom_right)
+            .screen_to_puzzle(vp.area, bottom_right)
             .unwrap_or_else(|| {
                 panic!(
                     "Viewport bottom-right {bottom_right:?} should be in-bounds ({} rows, {} cols)",
@@ -146,34 +150,70 @@ impl PuzzleState {
         Size::new(end.col - start.col + 1, end.row - start.row + 1)
     }
 
-    pub fn create_viewport(&self, area: Rect) -> Viewport {
-        // Shrink inwards by 1 to draw a border
-        let inner = area.inner(Margin::new(1, 1));
+    pub fn update_viewport(&mut self) {
+        let visible = self.visible_cells();
+        let vp = &mut self.viewport;
 
-        let visible = self.visible_cells(inner);
         let rows = self.puzzle.rows();
-        let row_start = self.scroll.row;
-        let row_end = (row_start + visible.height).min(rows);
-        tracing::debug!(
-            "Row range: {row_start}..{row_end} (with {} visible rows and {rows} puzzle rows)",
+        vp.row_start = self.scroll.row;
+        vp.row_end = (vp.row_start + visible.height).min(rows);
+
+        tracing::trace!(
+            "Row range: {}..{} (with {} visible rows and {rows} puzzle rows)",
+            vp.row_start,
+            vp.row_end,
             visible.height
         );
 
         let cols = self.puzzle.cols();
-        let col_start = self.scroll.col;
-        let col_end = (col_start + visible.width).min(cols);
-        tracing::debug!(
-            "Col range: {col_start}..{col_end} (with {} visible cols and {cols} puzzle cols)",
+        vp.col_start = self.scroll.col;
+        vp.col_end = (vp.col_start + visible.width).min(cols);
+        tracing::trace!(
+            "Col range: {}..{} (with {} visible cols and {cols} puzzle cols)",
+            vp.col_start,
+            vp.col_end,
             visible.width
         );
+    }
 
-        Viewport {
-            row_start,
-            row_end,
-            col_start,
-            col_end,
-            area: inner,
+    pub fn keep_cursor_visible(&mut self, cursor: AppPosition) {
+        let (col, row) = cursor.into();
+        let grid = self.style.grid_size;
+
+        let vp = &self.viewport;
+        let (vis_cols, vis_rows) = (vp.visible_cols(), vp.visible_rows());
+
+        let scroll = self.scroll;
+
+        tracing::info!("Keep {cursor:?} visible in ({vp:?}");
+        tracing::info!("\tScroll before: {scroll:?}");
+
+        // Cursor is left of the viewport -> make it the offset
+        if col < scroll.col {
+            self.scroll.col = col;
         }
+        // Cursor is right of the viewport -> bring it into view
+        else if col >= scroll.col + vis_cols {
+            self.scroll.col = col - vis_cols + 1;
+        }
+
+        // Cursor is above the viewport -> make it the offset
+        if row < scroll.row {
+            self.scroll.row = row;
+        }
+        // Cursor is below the viewport -> bring it into view
+        else if row >= scroll.row + vis_rows {
+            self.scroll.row = row - vis_rows + 1;
+
+            if let Some(grid) = grid
+                && row.is_multiple_of(grid)
+            {
+                self.scroll.row += 1;
+            }
+        }
+
+        self.update_viewport();
+        tracing::info!("\tScroll after: {scroll:?}");
     }
 
     pub fn size(&self) -> Size {
@@ -190,30 +230,5 @@ impl PuzzleState {
 
         // Add on 2 for the borders around
         Size::new(width + 2, height + 2)
-    }
-
-    pub fn keep_cursor_visible(&mut self, cursor: AppPosition) {
-        let (col, row) = cursor.into();
-        let vp = &self.viewport;
-        let (vis_cols, vis_rows) = (vp.visible_cols(), vp.visible_rows());
-
-        tracing::debug!("Viewport {vp:?} has {vis_rows} visable rows");
-        tracing::debug!("Viewport {vp:?} has {vis_cols} visable columns");
-
-        let scroll = &mut self.scroll;
-
-        // Horizontal
-        if col < scroll.col {
-            scroll.col = col;
-        } else if col >= scroll.col + vis_cols {
-            scroll.col = col - vis_cols + 1;
-        }
-
-        // Vertical
-        if row < scroll.row {
-            scroll.row = row;
-        } else if row >= scroll.row + vis_rows {
-            scroll.row = row - vis_rows + 1;
-        }
     }
 }

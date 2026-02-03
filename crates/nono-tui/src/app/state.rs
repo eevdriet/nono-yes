@@ -20,6 +20,9 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(puzzle: Puzzle, rules: Rules, style: PuzzleStyle, settings: Settings) -> Self {
+        let mut rules = rules;
+        rules.generate_masks();
+
         let start_fill = Fill::Color(1);
 
         Self {

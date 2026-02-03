@@ -40,6 +40,7 @@ fn main() -> Result<()> {
 
     let puzzle = nonogram.puzzle;
     let rules = nonogram.rules;
+
     let style = PuzzleStyle {
         colors: nonogram.colors,
         grid_size: config.styles.grid_size,

@@ -8,8 +8,6 @@ pub use state::*;
 pub use style::*;
 pub use viewport::*;
 
-use std::fmt::Display;
-
 use nono::Fill;
 use ratatui::{
     buffer::Buffer,
@@ -18,7 +16,7 @@ use ratatui::{
     widgets::StatefulWidgetRef,
 };
 
-use crate::{AppState, Focus, app_to_puzzle};
+use crate::{AppState, Focus, app_to_puzzle, safe_draw_str};
 
 #[derive(Debug, Copy, Clone)]
 pub struct PuzzleWidget;
@@ -27,25 +25,13 @@ impl StatefulWidgetRef for &PuzzleWidget {
     type State = AppState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
-        self.draw_puzzle(area, buf, state);
+        self.draw_puzzle(buf, state);
         self.draw_borders(area, buf, state);
     }
 }
 
 impl PuzzleWidget {
-    fn draw<T>(&self, area: Rect, buf: &mut Buffer, pos: AppPosition, content: T, style: Style)
-    where
-        T: AsRef<str> + Display,
-    {
-        if !area.contains(pos) {
-            tracing::debug!("Not writing {content} at {pos}, falls outside the area {area:?}");
-            return;
-        }
-
-        buf.set_string(pos.x, pos.y, content, style);
-    }
-
-    fn draw_puzzle(&self, area: Rect, buf: &mut Buffer, app_state: &AppState) {
+    fn draw_puzzle(&self, buf: &mut Buffer, app_state: &AppState) {
         let state = &app_state.puzzle;
         let cell_width = state.style.cell_width as usize;
         let div_style = Style::default().fg(Color::DarkGray);
@@ -63,8 +49,6 @@ impl PuzzleWidget {
         let bounds = state.bounds();
         let range = state.selection.range();
         let selection = range.positions(&bounds);
-
-        tracing::debug!("Viewporttt: {vp:?}");
 
         for row in vp.row_start..vp.row_end {
             let mut x = x_start;
@@ -84,7 +68,7 @@ impl PuzzleWidget {
                 .to_string()
                 .repeat(repeat);
 
-                self.draw(area, buf, (x, y).into(), symbol, style);
+                safe_draw_str(buf, (x, y).into(), symbol, style);
 
                 x += state.style.cell_width;
 
@@ -93,7 +77,7 @@ impl PuzzleWidget {
                     && col != cols - 1
                     && (col + 1) % size == 0
                 {
-                    self.draw(area, buf, (x, y).into(), "│", div_style);
+                    safe_draw_str(buf, (x, y).into(), "│", div_style);
                     x += 1;
                 }
             }
@@ -108,11 +92,11 @@ impl PuzzleWidget {
 
                 for col in vp.col_start..vp.col_end {
                     let text = "─".repeat(cell_width);
-                    self.draw(area, buf, (div_x, div_y).into(), text, div_style);
+                    safe_draw_str(buf, (div_x, div_y).into(), text, div_style);
                     div_x += cell_width as u16;
 
                     if col != cols - 1 && (col + 1).is_multiple_of(size) {
-                        self.draw(area, buf, (div_x, div_y).into(), "┼", div_style);
+                        safe_draw_str(buf, (div_x, div_y).into(), "┼", div_style);
                         div_x += 1;
                     }
                 }
@@ -166,7 +150,7 @@ impl PuzzleWidget {
         // Fill
         style = match fill {
             Fill::Blank => style.fg(Color::DarkGray).add_modifier(Modifier::DIM),
-            Fill::Cross => style.fg(Color::DarkGray),
+            Fill::Cross => style.fg(Color::Gray),
             Fill::Color(id) => {
                 let (r, g, b) = state
                     .puzzle

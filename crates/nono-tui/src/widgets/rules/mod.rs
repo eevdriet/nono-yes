@@ -41,7 +41,7 @@ pub fn run_style(info: &RuleInfo, fill: Fill, idx: u16, state: &AppState) -> Sty
             .add_modifier(Modifier::DIM | Modifier::CROSSED_OUT),
 
         // Shade invalid rules in red
-        LineValidation::Invalid => base
+        v if !v.is_valid() => base
             .fg(Color::Red)
             .add_modifier(Modifier::UNDERLINED | Modifier::BOLD),
 

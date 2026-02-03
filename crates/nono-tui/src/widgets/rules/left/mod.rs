@@ -123,7 +123,7 @@ impl RowRulesWidget {
         let mut width = 0;
         let max_width = area.width;
 
-        tracing::debug!("Drawing runs for {area:?}");
+        tracing::trace!("Drawing runs for {area:?}");
 
         let (fills, texts): (Vec<_>, Vec<_>) = runs
             .iter()
@@ -141,7 +141,6 @@ impl RowRulesWidget {
             }
             // Instead hide the remaining runs
             else if width + len + 1 >= max_width {
-                tracing::debug!("\tDrawing overflow and quitting");
                 spans.push(Span::raw("⋯"));
                 break;
             } else {

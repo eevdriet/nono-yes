@@ -78,6 +78,8 @@ impl HandleAction for &PuzzleWidget {
         let action = input.action;
         let count = input.repeat.unwrap_or(1);
 
+        let fill: Option<Fill> = event.clone().try_into().ok();
+
         // Bounds
         let max_row = puzzle.rows() - 1;
         let max_col = puzzle.cols() - 1;
@@ -109,23 +111,23 @@ impl HandleAction for &PuzzleWidget {
             },
 
             // Fill finds
-            Action::FindFillForwards => puzzle
-                .find_fill(axis_pos, state.puzzle.fill, FindDirection::Forwards)
+            Action::FindFillForwards if fill.is_some() => puzzle
+                .find_fill(axis_pos, fill.unwrap(), FindDirection::Forwards)
                 .map(|pos| pos.into())
                 .unwrap_or(pos),
 
-            Action::FindFillBackwards => puzzle
-                .find_fill(axis_pos, state.puzzle.fill, FindDirection::Backwards)
+            Action::FindFillBackwards if fill.is_some() => puzzle
+                .find_fill(axis_pos, fill.unwrap(), FindDirection::Backwards)
                 .map(|pos| pos.into())
                 .unwrap_or(pos),
 
-            Action::FindTilFillForwards => puzzle
-                .find_fill(axis_pos, state.puzzle.fill, FindDirection::Forwards)
+            Action::FindTilFillForwards if fill.is_some() => puzzle
+                .find_fill(axis_pos, fill.unwrap(), FindDirection::Forwards)
                 .map(|pos| (pos - 1).into())
                 .unwrap_or(pos),
 
-            Action::FindTilFillBackwards => puzzle
-                .find_fill(axis_pos, state.puzzle.fill, FindDirection::Backwards)
+            Action::FindTilFillBackwards if fill.is_some() => puzzle
+                .find_fill(axis_pos, fill.unwrap(), FindDirection::Backwards)
                 .map(|pos| (pos + 1).into())
                 .unwrap_or(pos),
 
