@@ -3,6 +3,7 @@ mod left;
 mod state;
 mod top;
 
+pub use actions::*;
 pub use left::*;
 pub use state::*;
 pub use top::*;

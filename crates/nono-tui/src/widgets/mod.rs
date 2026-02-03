@@ -1,6 +1,7 @@
 mod footer;
 mod layout;
 mod puzzle;
+mod region;
 mod rules;
 
 use std::fmt::Display;
@@ -8,6 +9,7 @@ use std::fmt::Display;
 pub use footer::*;
 pub use layout::*;
 pub use puzzle::*;
+pub use region::*;
 pub use rules::*;
 
 use ratatui::{buffer::Buffer, layout::Position as AppPosition, style::Style};

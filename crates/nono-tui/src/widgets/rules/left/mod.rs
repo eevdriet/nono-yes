@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, StatefulWidgetRef, TitlePosition, Widget},
 };
 
-use crate::{AppState, Focus, run_style, status_info, widgets::rules::RuleInfo};
+use crate::{AppState, Focus, Region, run_style, status_info, widgets::rules::RuleInfo};
 
 #[derive(Debug)]
 pub struct RowRulesWidget {
@@ -48,8 +48,9 @@ impl RowRulesWidget {
         Self { name, rules }
     }
 
-    fn draw(&self, area: Rect, buf: &mut Buffer, state: &AppState) {
-        let rule_state = &state.rules_left;
+    fn draw(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
+        state.rules_left.fill_regions.clear();
+
         let puz_state = &state.puzzle;
         let cursor = state.cursor();
 
@@ -80,12 +81,16 @@ impl RowRulesWidget {
                 height: cell_height,
                 ..area
             };
-            self.draw_runs(&info, Alignment::Right, inner, buf, state);
+
+            let regions = self.draw_runs(&info, Alignment::Right, inner, buf, state);
+            state.rules_left.fill_regions.extend(regions);
 
             if cursor.y == row && !matches!(state.focus, Focus::RulesTop) {
-                let o = rule_state.overflow_area;
+                let o = state.rules_left.overflow_area;
                 let inner = Rect { x: o.x + 1, ..o };
-                self.draw_runs(&info, Alignment::Left, inner, buf, state);
+
+                let regions = self.draw_runs(&info, Alignment::Left, inner, buf, state);
+                state.rules_left.fill_regions.extend(regions);
             }
 
             // Advance to next viewport row and skip grid dividors
@@ -98,6 +103,9 @@ impl RowRulesWidget {
                 y += 1;
             }
         }
+
+        tracing::info!("RRR Area: {:?}", state.rules_left.area);
+        tracing::info!("RRR regions: {:?}", state.rules_left.fill_regions);
     }
 
     fn draw_runs(
@@ -107,8 +115,9 @@ impl RowRulesWidget {
         area: Rect,
         buf: &mut Buffer,
         state: &AppState,
-    ) {
+    ) -> Vec<Region<Fill>> {
         let RuleInfo { rule, .. } = info;
+        let cell_height = state.puzzle.style.cell_height;
 
         let mut spans: Vec<Span> = Vec::new();
         let runs = match rule.runs().len() {
@@ -160,10 +169,48 @@ impl RowRulesWidget {
             }
         }
 
+        let content_width: u16 = spans.iter().map(|span| span.content.len() as u16).sum();
+
+        let mut x = match alignment {
+            Alignment::Left => area.x,
+            Alignment::Right => area.right().saturating_sub(content_width),
+            Alignment::Center => area.x + (area.width.saturating_sub(content_width)) / 2,
+        };
+
+        let y = area.y;
+
+        let mut regions = Vec::new();
+
+        for (r, span) in spans.iter().enumerate() {
+            let w = span.content.len() as u16;
+
+            // Only create region for run numbers, not spaces/ellipsis
+            if r.is_multiple_of(2) {
+                let fill = runs[r / 2].fill;
+
+                let region = Region {
+                    data: fill,
+                    area: Rect {
+                        x,
+                        y,
+                        width: w,
+                        height: cell_height,
+                    },
+                };
+
+                regions.push(region);
+            }
+
+            buf.set_stringn(x, y, &span.content, w as usize, span.style);
+            x += w;
+        }
+
         TextLine::from(spans)
             .alignment(alignment)
             .style(Style::reset())
             .render(area, buf);
+
+        regions
     }
 
     fn draw_status(&self, info: &RuleInfo, y: u16, area: Rect, buf: &mut Buffer, state: &AppState) {

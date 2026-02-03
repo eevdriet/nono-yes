@@ -14,14 +14,14 @@ pub use selection::*;
 pub use state::*;
 
 use crossterm::{
-    event::{self as t_event, EnableMouseCapture},
+    event::{self as t_event, EnableMouseCapture, Event},
     execute,
     terminal::EnterAlternateScreen,
 };
-use nono::{Error, Puzzle, Result, Rules, Solver};
+use nono::{Puzzle, Rules, Solver};
 use ratatui::{
     DefaultTerminal, Frame,
-    layout::{Margin, Rect},
+    layout::{Margin, Position, Rect},
     style::{Color, Style},
     widgets::{FrameExt, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
@@ -30,13 +30,12 @@ use std::time::Duration;
 use crate::{
     ActionEngine, ActionInput, ActionOutcome, ActionResult, AppEvent, ColRulesWidget,
     ComputeLayout, Config, EventEngine, FooterWidget, HandleAction, PuzzleStyle, PuzzleWidget,
-    RowRulesWidget,
+    Result, RowRulesWidget,
 };
 
 const POLL_DURATION: Duration = Duration::from_millis(30);
 const TICK_DURATION: Duration = Duration::from_millis(200);
 
-#[derive(Debug)]
 pub struct App {
     // State
     pub state: AppState,
@@ -119,8 +118,9 @@ impl App {
     }
 
     fn handle_with_engine(&mut self, input: ActionInput) -> ActionResult {
-        // Handle the event with the focused widget
-        let outcome = match self.state.focus {
+        let focus = self.resolve_focus(&input);
+
+        let outcome = match focus {
             Focus::Puzzle => {
                 self.actions
                     .handle_action_with(&self.puzzle_widget, input.clone(), &mut self.state)
@@ -150,12 +150,34 @@ impl App {
         Ok(outcome)
     }
 
+    fn resolve_focus(&self, input: &ActionInput) -> Focus {
+        if let Event::Mouse(mouse) = *input.event {
+            let pos = Position::new(mouse.column, mouse.row);
+
+            if self.state.puzzle.area.contains(pos) {
+                return Focus::Puzzle;
+            }
+            if self.state.rules_left.area.contains(pos) {
+                return Focus::RulesLeft;
+            }
+            if self.state.rules_top.area.contains(pos) {
+                return Focus::RulesTop;
+            }
+        }
+
+        self.state.focus
+    }
+
     fn init(&self) -> Result<()> {
-        execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture).map_err(Error::Io)
+        execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+
+        Ok(())
     }
 
     fn exit(&self) -> Result<()> {
-        execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture).map_err(Error::Io)
+        execute!(std::io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
+
+        Ok(())
     }
 
     fn render(&mut self, frame: &mut Frame) {

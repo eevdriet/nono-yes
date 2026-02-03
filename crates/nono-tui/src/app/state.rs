@@ -5,7 +5,6 @@ use ratatui::layout::Position as AppPosition;
 
 use crate::{Action, ActionInput, Focus, PuzzleState, PuzzleStyle, RuleState, Selection, Settings};
 
-#[derive(Debug)]
 pub struct AppState {
     // Common
     pub settings: Settings,

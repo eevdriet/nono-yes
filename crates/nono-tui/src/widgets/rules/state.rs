@@ -1,7 +1,7 @@
-use nono::{Axis, Position, Rule};
+use nono::{Axis, Fill, Position, Rule};
 use ratatui::layout::{Position as AppPosition, Rect};
 
-use crate::{RuleDisplay, Selection, puzzle_to_app};
+use crate::{Region, RuleDisplay, Selection, puzzle_to_app};
 
 #[derive(Debug, Default)]
 pub struct RuleState {
@@ -17,6 +17,8 @@ pub struct RuleState {
 
     pub area: Rect,
     pub overflow_area: Rect,
+
+    pub fill_regions: Vec<Region<Fill>>,
 }
 
 impl RuleState {

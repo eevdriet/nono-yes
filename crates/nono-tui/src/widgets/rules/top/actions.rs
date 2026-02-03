@@ -1,8 +1,9 @@
-use nono::{Position, Result};
+use crossterm::event::Event;
+use nono::Position;
 
 use crate::{
-    Action, ActionInput, ActionOutcome, AppState, ColRulesWidget, HandleAction, MotionRange,
-    app_to_puzzle, puzzle_to_app, widgets::rules::actions::handle_command,
+    Action, ActionInput, ActionOutcome, AppState, ColRulesWidget, Error, HandleAction, MotionRange,
+    Result, app_to_puzzle, handle_command, handle_mouse, puzzle_to_app,
 };
 
 impl HandleAction for &ColRulesWidget {
@@ -15,8 +16,10 @@ impl HandleAction for &ColRulesWidget {
         input: ActionInput,
         state: &mut AppState,
     ) -> Result<(ActionOutcome, Option<MotionRange>)> {
-        let rule_state = &mut state.rules_top;
+        let fill_regions = &state.rules_top.fill_regions;
+        let rule_state = &state.rules_top;
 
+        let event = input.event;
         let action = input.action;
         let count = input.repeat.unwrap_or(1);
 
@@ -61,11 +64,23 @@ impl HandleAction for &ColRulesWidget {
                 },
                 true,
             ),
+
+            Action::Click => {
+                let Event::Mouse(mouse) = *event else {
+                    return Err(Error::Custom(format!(
+                        "Found invalid event {event:?} for {action:?}"
+                    )));
+                };
+
+                handle_mouse(fill_regions, mouse, &mut state.puzzle.fill);
+                (pos, false)
+            }
+
             _ => (pos, false),
         };
 
         let cursor = puzzle_to_app(end);
-        rule_state.cursor = cursor;
+        state.rules_top.cursor = cursor;
 
         state.puzzle.cursor.x = cursor.x;
         state.puzzle.keep_cursor_visible(state.puzzle.cursor);

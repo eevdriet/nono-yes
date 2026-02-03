@@ -1,7 +1,7 @@
-use nono::{Fill, Result};
+use nono::Fill;
 
 use crate::{
-    Action, ActionInput, ActionOutcome, AppState, FooterWidget, HandleAction, MotionRange,
+    Action, ActionInput, ActionOutcome, AppState, FooterWidget, HandleAction, MotionRange, Result,
 };
 
 impl HandleAction for &FooterWidget {

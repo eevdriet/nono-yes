@@ -8,7 +8,9 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, StatefulWidgetRef, TitlePosition, Widget},
 };
 
-use crate::{AppState, Focus, run_style, safe_draw_str, status_info, widgets::rules::RuleInfo};
+use crate::{
+    AppState, Focus, Region, run_style, safe_draw_str, status_info, widgets::rules::RuleInfo,
+};
 
 #[derive(Debug)]
 pub struct ColRulesWidget {
@@ -54,8 +56,9 @@ impl ColRulesWidget {
         Self { name, rules }
     }
 
-    fn draw(&self, area: Rect, buf: &mut Buffer, state: &AppState) {
-        let rule_state = &state.rules_top;
+    fn draw(&self, area: Rect, buf: &mut Buffer, state: &mut AppState) {
+        state.rules_top.fill_regions.clear();
+
         let puz_state = &state.puzzle;
         let cursor = state.cursor();
 
@@ -89,13 +92,15 @@ impl ColRulesWidget {
                 height: area.height,
             };
 
-            self.draw_runs(&info, false, run_area, buf, state);
+            let regions = self.draw_runs(&info, false, run_area, buf, state);
+            state.rules_top.fill_regions.extend(regions);
 
             if cursor.x == col && !matches!(state.focus, Focus::RulesLeft) {
-                let o = rule_state.overflow_area;
+                let o = state.rules_top.overflow_area;
                 let run_area = Rect { y, ..o };
 
-                self.draw_runs(&info, true, run_area, buf, state);
+                let regions = self.draw_runs(&info, true, run_area, buf, state);
+                state.rules_top.fill_regions.extend(regions);
             }
 
             self.draw_status(&info, x, area, buf, state);
@@ -119,8 +124,9 @@ impl ColRulesWidget {
         area: Rect,
         buf: &mut Buffer,
         state: &AppState,
-    ) {
+    ) -> Vec<Region<Fill>> {
         let RuleInfo { rule, .. } = info;
+        let mut regions = Vec::new();
 
         let runs = match rule.runs().len() {
             0 => &vec![Run {
@@ -141,7 +147,7 @@ impl ColRulesWidget {
             if y + 1 >= area.bottom() {
                 if !continue_to_right {
                     // tracing::info!("\tReached bottom");
-                    return;
+                    return regions;
                 }
 
                 // tracing::info!("\tContinue to right");
@@ -155,7 +161,7 @@ impl ColRulesWidget {
                     let text = format!("{:>cell_width$}", "⋯");
 
                     safe_draw_str(buf, Position::new(x, y), text, Style::default());
-                    return;
+                    return regions;
                 }
 
                 // tracing::info!("\tContinue to right");
@@ -167,9 +173,22 @@ impl ColRulesWidget {
             let text = format!("{:>cell_width$}", run.count);
             let style = run_style(info, run.fill, r, state);
 
+            let region = Region::<Fill> {
+                data: run.fill,
+                area: Rect {
+                    x,
+                    y,
+                    width: cell_width as u16,
+                    height: 1,
+                },
+            };
+            regions.push(region);
+
             safe_draw_str(buf, Position::new(x, y), text, style);
             y += 1;
         }
+
+        regions
     }
 
     fn draw_status(&self, info: &RuleInfo, x: u16, area: Rect, buf: &mut Buffer, state: &AppState) {

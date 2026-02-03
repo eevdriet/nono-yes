@@ -26,6 +26,7 @@ impl ActionEngine {
         let is_visual = matches!(self.mode, Mode::Visual(_));
         let is_normal = matches!(self.mode, Mode::Normal);
 
+        // Separately handle mouse events
         match input.action {
             // Exit application
             Action::Quit => return Ok(ActionOutcome::Exit),

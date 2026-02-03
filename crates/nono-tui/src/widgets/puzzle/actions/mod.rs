@@ -3,12 +3,12 @@ mod fill;
 pub use fill::*;
 
 use crossterm::event::Event;
-use nono::{Error, Fill, FindDirection, LinePosition, Position, Puzzle, Result};
+use nono::{Fill, FindDirection, LinePosition, Position, Puzzle};
 use ratatui::layout::Position as AppPosition;
 
 use crate::{
-    Action, ActionInput, ActionOutcome, ActionResult, AppState, HandleAction, MotionRange,
-    PuzzleWidget, app_to_puzzle, puzzle_to_app,
+    Action, ActionInput, ActionOutcome, ActionResult, AppState, Error, HandleAction, MotionRange,
+    PuzzleWidget, Result, app_to_puzzle, puzzle_to_app,
 };
 
 // H

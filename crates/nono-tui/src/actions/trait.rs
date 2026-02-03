@@ -1,6 +1,4 @@
-use nono::Result;
-
-use crate::{ActionInput, ActionOutcome, AppState, MotionRange};
+use crate::{ActionInput, ActionOutcome, AppState, MotionRange, Result};
 
 pub type ActionResult = Result<ActionOutcome>;
 
