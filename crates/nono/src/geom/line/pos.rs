@@ -1,26 +1,6 @@
-use std::{collections::HashMap, ops};
+use std::ops;
 
-use bitvec::vec::BitVec;
-
-use crate::Position;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Line {
-    Row(u16),
-    Col(u16),
-}
-
-pub type LineMask = BitVec;
-pub type LineMap<T> = HashMap<Line, T>;
-
-impl Line {
-    pub fn line(&self) -> u16 {
-        match self {
-            Self::Row(row) => *row,
-            Self::Col(col) => *col,
-        }
-    }
-}
+use crate::{Line, Position};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct LinePosition {
