@@ -26,7 +26,7 @@ where
     let final_pos = AppPosition::new(right, pos.y);
 
     if !buf.area.contains(final_pos) {
-        tracing::warn!(
+        tracing::debug!(
             "Not writing {content} at {pos}-{final_pos}, falls outside the area {:?}",
             buf.area
         );

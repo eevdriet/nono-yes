@@ -43,6 +43,7 @@ impl Solver {
 
             // Register the must be filled cells for the color
             let constraint = LineConstraint { required, optional };
+            tracing::info!("{constraint:?} created for {color:?} on {line:?}");
 
             constraints.insert(color, constraint);
         }
@@ -53,7 +54,10 @@ impl Solver {
             optional: optional_cross,
         };
 
-        constraints.insert(Fill::Cross, constraint);
+        let cross = Fill::Cross;
+        tracing::info!("{constraint:?} created for {cross:?} on {line:?}");
+
+        constraints.insert(cross, constraint);
     }
 }
 

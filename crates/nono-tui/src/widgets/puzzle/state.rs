@@ -185,8 +185,8 @@ impl PuzzleState {
 
         let scroll = self.scroll;
 
-        tracing::info!("Keep {cursor:?} visible in ({vp:?}");
-        tracing::info!("\tScroll before: {scroll:?}");
+        tracing::trace!("Keep {cursor:?} visible in ({vp:?}");
+        tracing::trace!("\tScroll before: {scroll:?}");
 
         // Cursor is left of the viewport -> make it the offset
         if col < scroll.col {

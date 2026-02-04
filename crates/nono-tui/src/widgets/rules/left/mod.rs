@@ -103,9 +103,6 @@ impl RowRulesWidget {
                 y += 1;
             }
         }
-
-        tracing::info!("RRR Area: {:?}", state.rules_left.area);
-        tracing::info!("RRR regions: {:?}", state.rules_left.fill_regions);
     }
 
     fn draw_runs(
@@ -196,7 +193,6 @@ impl RowRulesWidget {
                 regions.push(region);
             }
 
-            buf.set_stringn(x, y, &span.content, w as usize, span.style);
             x += w;
         }
 

@@ -31,9 +31,6 @@ impl UndoAction for FillAction {
         for change in &self.changes {
             let puzzle = &mut state.puzzle.puzzle;
 
-            // Give the cell the correct fill
-            puzzle.fill_cell(change.pos, change.after);
-
             // Then update the cell state in the solver
             state.solver.update_cell(puzzle, change.pos, change.after);
         }
@@ -44,9 +41,6 @@ impl UndoAction for FillAction {
     fn undo(&mut self, state: &mut AppState) -> ActionResult {
         for change in &self.changes {
             let puzzle = &mut state.puzzle.puzzle;
-
-            // Give the cell the correct fill
-            puzzle.fill_cell(change.pos, change.before);
 
             // Then update the cell state in the solver
             state.solver.update_cell(puzzle, change.pos, change.before);

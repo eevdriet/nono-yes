@@ -63,8 +63,9 @@ impl Solver {
         }
 
         // If still valid, validate with a DP
-        if !self.validate_dp(puzzle, rule, line) {
-            return LineValidation::Invalid;
+        let validation = self.validate_dp(puzzle, rule, line);
+        if !validation.is_valid() {
+            return validation;
         }
 
         // If so, check if it solve the rule
@@ -126,7 +127,7 @@ impl Solver {
         // LineValidation::Valid
     }
 
-    fn validate_dp(&self, puzzle: &Puzzle, rule: &Rule, line: Line) -> bool {
+    fn validate_dp(&self, puzzle: &Puzzle, rule: &Rule, line: Line) -> LineValidation {
         let runs = rule.runs();
         let n = puzzle.line_len(line) as usize;
         let m = runs.len();
@@ -203,7 +204,11 @@ impl Solver {
             }
         }
 
-        dp[n][m]
+        if dp[n][m] {
+            LineValidation::Valid
+        } else {
+            LineValidation::Invalid
+        }
     }
 
     fn validate_masks(&self, line: Line) -> LineValidation {
@@ -219,11 +224,16 @@ impl Solver {
             return LineValidation::Solved;
         };
 
+        tracing::info!("Validate {line:?}");
+        tracing::info!("\tMasks: {masks:?}");
+        tracing::info!("\tConstraints: {constraints:?}");
+
         // Verify each of the fills in the line that are currently set
         // Note the .filter to avoid fills that have been previously been set but not currently
         for (&fill, mask) in masks.iter().filter(|(_, mask)| mask.any()) {
             // Invalidate right away if rule doesn't include current fill
             let Some(LineConstraint { required, optional }) = constraints.get(&fill) else {
+                tracing::info!("Constraint not found for {fill:?} on {line:?}");
                 return LineValidation::InvalidFill(fill);
             };
 
